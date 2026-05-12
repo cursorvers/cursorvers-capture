@@ -5,10 +5,12 @@
 **堅牢・軽量・シェア対応 (multi-user, zero backend)**。
 
 ## 現状
-- **達成度: 35% (S1 完了、残 4 slices)**
+- **達成度: 75% (S1+S2+S3 完了、残 2 slices: S4 in-flight, S5)**
 - Project root: `/Users/masayuki/Dev/gdrive-uploader/`
-- Git: local-only repo (origin 未設定)、HEAD は S1 commit
+- Git: local-only repo (origin 未設定)、3 commits (S1, S2, S3)
 - spec.md v1.1 lock (Phase 1 多エージェント synthesis 反映済)
+- Build: ✅ 91.7 kB First Load JS / Test: ✅ 4/4 passing
+- 委譲実績: cursor-agent direct (S1, S2), gemini flash (S3) — 両者で交互に進行
 
 ## 採用 verdict (Phase 0 結論)
 **自作 PWA (Next.js 14 + Drive API direct)** — 7 候補を 6 軸 60 点で採点、48/60 で 1 位。

@@ -5,7 +5,13 @@ import { SignInButton } from "@/app/components/SignInButton";
 import { getDeviceShort } from "@/app/lib/device";
 import { getCurrentToken } from "@/app/lib/gis";
 import { idbGet, idbPut } from "@/app/lib/idb";
-import { Suspense, useCallback, useEffect, useState, type JSX } from "react";
+import {
+  Suspense,
+  useCallback,
+  useEffect,
+  useState,
+  type JSX,
+} from "react";
 import { useSearchParams } from "next/navigation";
 
 type ConfigFolderRecord = { key: "folder_id"; value: string };
@@ -75,7 +81,7 @@ function HomeContent(): JSX.Element {
     <main className="mx-auto flex min-h-screen max-w-md flex-col items-center justify-center gap-4 p-6 text-center">
       <h1 className="text-2xl font-semibold tracking-tight">Gdrive Uploader</h1>
       <p className="text-sm leading-relaxed text-neutral-400">
-        撮影 → 指定の Google Drive へ即アップロード
+        撮影 → JPEG を端末内で保持（S3）。Drive アップロードは次フェーズ。
       </p>
       <div className="flex w-full flex-col gap-3 pt-2">
         <SignInButton />
@@ -94,6 +100,7 @@ function HomeContent(): JSX.Element {
           </button>
         )}
       </div>
+
       {lastCapture ? (
         <p className="w-full rounded-xl border border-neutral-800 bg-neutral-900/20 px-4 py-2 text-left text-xs text-neutral-400">
           <span className="text-neutral-500">前回の撮影:</span>{" "}
@@ -108,6 +115,7 @@ function HomeContent(): JSX.Element {
           </span>
         </p>
       ) : null}
+
       <div className="w-full rounded-xl border border-neutral-800 bg-neutral-900/30 px-4 py-3 text-left text-xs text-neutral-400">
         <p>
           <span className="text-neutral-500">設定:</span> フォルダ ID ={" "}

@@ -1,0 +1,129 @@
+
+> gdrive-uploader@0.1.0 build /Users/masayuki/Dev/gdrive-uploader
+> next build
+
+  ▲ Next.js 14.2.35
+
+   Creating an optimized production build ...
+ ⚠ Compiled with warnings
+
+./app/lib/drive.ts
+Attempted import error: 'db' is not exported from './idb' (imported as 'db').
+
+Import trace for requested module:
+./app/lib/drive.ts
+./app/page.tsx
+
+./app/lib/drive.ts
+Attempted import error: 'db' is not exported from './idb' (imported as 'db').
+
+Import trace for requested module:
+./app/lib/drive.ts
+./app/page.tsx
+
+./app/lib/drive.ts
+Attempted import error: 'db' is not exported from './idb' (imported as 'db').
+
+Import trace for requested module:
+./app/lib/drive.ts
+./app/page.tsx
+
+./app/lib/drive.ts
+Attempted import error: 'db' is not exported from './idb' (imported as 'db').
+
+Import trace for requested module:
+./app/lib/drive.ts
+./app/page.tsx
+
+./app/lib/drive.ts
+Attempted import error: 'db' is not exported from './idb' (imported as 'db').
+
+Import trace for requested module:
+./app/lib/drive.ts
+./app/page.tsx
+
+./app/page.tsx
+Attempted import error: 'filenameNormalize' is not exported from '@/app/lib/filename' (imported as 'filenameNormalize').
+
+Import trace for requested module:
+./app/page.tsx
+
+ ⚠ Compiled with warnings
+
+./app/lib/drive.ts
+Attempted import error: 'db' is not exported from './idb' (imported as 'db').
+
+Import trace for requested module:
+./app/lib/drive.ts
+./app/page.tsx
+
+./app/lib/drive.ts
+Attempted import error: 'db' is not exported from './idb' (imported as 'db').
+
+Import trace for requested module:
+./app/lib/drive.ts
+./app/page.tsx
+
+./app/lib/drive.ts
+Attempted import error: 'db' is not exported from './idb' (imported as 'db').
+
+Import trace for requested module:
+./app/lib/drive.ts
+./app/page.tsx
+
+./app/lib/drive.ts
+Attempted import error: 'db' is not exported from './idb' (imported as 'db').
+
+Import trace for requested module:
+./app/lib/drive.ts
+./app/page.tsx
+
+./app/lib/drive.ts
+Attempted import error: 'db' is not exported from './idb' (imported as 'db').
+
+Import trace for requested module:
+./app/lib/drive.ts
+./app/page.tsx
+
+./app/page.tsx
+Attempted import error: 'db' is not exported from '@/app/lib/idb' (imported as 'db').
+
+Import trace for requested module:
+./app/page.tsx
+
+./app/page.tsx
+Attempted import error: 'db' is not exported from '@/app/lib/idb' (imported as 'db').
+
+Import trace for requested module:
+./app/page.tsx
+
+./app/page.tsx
+Attempted import error: 'db' is not exported from '@/app/lib/idb' (imported as 'db').
+
+Import trace for requested module:
+./app/page.tsx
+
+./app/page.tsx
+Attempted import error: 'filenameNormalize' is not exported from '@/app/lib/filename' (imported as 'filenameNormalize').
+
+Import trace for requested module:
+./app/page.tsx
+
+ ✓ Compiled successfully
+   Linting and checking validity of types ...
+
+Failed to compile.
+
+./app/lib/drive.ts
+175:21  Error: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+
+./app/lib/upload-queue.ts
+2:36  Error: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+
+./app/page.tsx
+34:9  Error: 'router' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+98:17  Error: 'driveProps' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+111:25  Error: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+
+info  - Need to disable some ESLint rules? Learn more here: https://nextjs.org/docs/basic-features/eslint#disabling-rules
+ ELIFECYCLE  Command failed with exit code 1.

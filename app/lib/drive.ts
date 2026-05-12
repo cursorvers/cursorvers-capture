@@ -1,0 +1,287 @@
+import { driveFetch } from './fetch-wrapper';
+import { db } from './idb';
+
+const UPLOAD_SESSION_EXPIRATION_MS = 6 * 86400 * 1000; // 6 days
+
+interface ResumableSession {
+  id: string; // filename
+  sessionUrl: string;
+  createdAt: number;
+  totalSize: number;
+}
+
+export async function initResumableSession(opts: {
+  filename: string;
+  mimeType: 'image/jpeg';
+  folderId: string;
+  size: number;
+}): Promise<{ sessionUrl: string; createdAt: number }> {
+  const { filename, mimeType, folderId, size } = opts;
+  const response = await driveFetch(
+    'https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable',
+    {
+      method: 'POST',
+      headers: {
+        'X-Upload-Content-Type': mimeType,
+        'X-Upload-Content-Length': size.toString(),
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        name: filename,
+        parents: [folderId],
+        mimeType: mimeType,
+      }),
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(`Failed to initiate resumable session: ${response.statusText}`);
+  }
+
+  const sessionUrl = response.headers.get('Location');
+  if (!sessionUrl) {
+    throw new Error('No Location header found in resumable session initiation response.');
+  }
+
+  const createdAt = Date.now();
+  await db.put('uploadSessions', {
+    id: filename,
+    sessionUrl,
+    createdAt,
+    totalSize: size,
+  });
+
+  return { sessionUrl, createdAt };
+}
+
+export async function uploadChunk(
+  sessionUrl: string,
+  blob: Blob,
+  start: number,
+  total: number,
+  chunkSize: number = 2 * 1024 * 1024
+): Promise<{ done: boolean; nextStart?: number; fileId?: string }> {
+  const end = Math.min(start + chunkSize - 1, total - 1);
+  const chunk = blob.slice(start, end + 1);
+
+  const response = await driveFetch(sessionUrl, {
+    method: 'PUT',
+    headers: {
+      'Content-Range': `bytes ${start}-${end}/${total}`,
+    },
+    body: chunk,
+  });
+
+  if (response.status === 200 || response.status === 201) {
+    const data = await response.json();
+    return { done: true, fileId: data.id };
+  } else if (response.status === 308) {
+    const rangeHeader = response.headers.get('Range');
+    if (rangeHeader) {
+      const match = rangeHeader.match(/bytes=(\d+)-(\d+)/);
+      if (match && match[2]) {
+        return { done: false, nextStart: parseInt(match[2], 10) + 1 };
+      }
+    }
+    return { done: false, nextStart: start + chunk.size };
+  } else if (response.status >= 400) {
+    throw new Error(`Upload chunk failed: ${response.status} ${response.statusText}`);
+  }
+
+  throw new Error(`Unexpected upload chunk response status: ${response.status}`);
+}
+
+export async function queryResume(
+  sessionUrl: string,
+  total: number
+): Promise<{ done: boolean; nextStart?: number; fileId?: string }> {
+  const response = await driveFetch(sessionUrl, {
+    method: 'PUT',
+    headers: {
+      'Content-Range': `bytes */${total}`,
+    },
+    body: null, // Empty body for queryResume
+  });
+
+  if (response.status === 200 || response.status === 201) {
+    const data = await response.json();
+    return { done: true, fileId: data.id };
+  } else if (response.status === 308) {
+    const rangeHeader = response.headers.get('Range');
+    if (rangeHeader) {
+      const match = rangeHeader.match(/bytes=(\d+)-(\d+)/);
+      if (match && match[2]) {
+        return { done: false, nextStart: parseInt(match[2], 10) + 1 };
+      }
+    }
+    return { done: false, nextStart: 0 }; // Should return nextStart, default to 0 if not found
+  } else if (response.status >= 400) {
+    throw new Error(`Query resume failed: ${response.statusText}`);
+  }
+
+  throw new Error(`Unexpected query resume response status: ${response.status}`);
+}
+
+export async function uploadBlob(
+
+  blob: Blob,
+
+  filename: string,
+
+  folderId: string,
+
+  onProgress?: (bytesUploaded: number, total: number) => void
+
+): Promise<{ fileId: string }> {
+
+  const initialSession: ResumableSession | undefined = await db.get('uploadSessions', filename);
+
+    let sessionUrl: string = ''; // Will be assigned definitively before the loop
+
+    let currentOffset = 0;
+
+    const totalSize = blob.size;
+
+    const CHUNK_SIZE = 2 * 1024 * 1024; // 2MB
+
+
+
+  let shouldReinitialize = false;
+
+
+
+  if (initialSession && initialSession.createdAt > Date.now() - UPLOAD_SESSION_EXPIRATION_MS) {
+
+    sessionUrl = initialSession.sessionUrl; // Assign from existing valid session
+
+    try {
+
+      const resumeStatus = await queryResume(sessionUrl, totalSize);
+
+      if (resumeStatus.done) {
+
+        await db.delete('uploadSessions', filename);
+
+        onProgress?.(totalSize, totalSize);
+
+        return { fileId: resumeStatus.fileId! };
+
+      }
+
+      currentOffset = resumeStatus.nextStart || 0;
+
+    } catch {
+
+      // If queryResume fails (e.g., 404/410), treat as no valid session, force re-initialization
+
+      shouldReinitialize = true;
+
+    }
+
+  } else {
+
+    // No valid existing session found (either none, or expired)
+
+    shouldReinitialize = true;
+
+  }
+
+
+
+  if (shouldReinitialize) {
+
+    // If we reach here, either no valid session was found, or queryResume failed.
+
+    // Ensure existing (potentially expired/invalid) session is cleared before re-initializing.
+
+    if (initialSession) {
+
+      await db.delete('uploadSessions', filename);
+
+    }
+
+    const newSession = await initResumableSession({
+
+      filename,
+
+      mimeType: 'image/jpeg',
+
+      folderId,
+
+      size: totalSize,
+
+    });
+
+    sessionUrl = newSession.sessionUrl;
+
+    currentOffset = 0; // Start fresh from the beginning
+
+  }
+
+
+
+  // At this point, sessionUrl is guaranteed to be assigned.
+
+
+
+  while (currentOffset < totalSize) {
+
+    try {
+
+      const uploadResult = await uploadChunk(sessionUrl, blob, currentOffset, totalSize, CHUNK_SIZE);
+
+      if (uploadResult.done) {
+
+        await db.delete('uploadSessions', filename);
+
+        onProgress?.(totalSize, totalSize);
+
+        return { fileId: uploadResult.fileId! };
+
+      }
+
+      currentOffset = uploadResult.nextStart || currentOffset + CHUNK_SIZE;
+
+      onProgress?.(currentOffset, totalSize);
+
+    } catch (error: unknown) {
+
+      if (error instanceof Error && (error.message.includes('410') || error.message.includes('404'))) {
+
+        // Session expired or not found during chunk upload, re-initialize once
+
+        await db.delete('uploadSessions', filename);
+
+        const newSession = await initResumableSession({
+
+          filename,
+
+          mimeType: 'image/jpeg',
+
+          folderId,
+
+          size: totalSize,
+
+        });
+
+        sessionUrl = newSession.sessionUrl;
+
+        currentOffset = 0; // Restart upload from the beginning with new session
+
+        onProgress?.(0, totalSize); // Reset progress
+
+      } else {
+
+        throw error; // Re-throw for other unrecoverable errors
+
+      }
+
+    }
+
+  }
+
+
+
+  throw new Error('Upload did not complete.');
+
+}

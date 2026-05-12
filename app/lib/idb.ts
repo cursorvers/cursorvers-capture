@@ -15,7 +15,13 @@ function requireBrowser(): void {
   }
 }
 
-function openDb(): Promise<IDBDatabase> {
+let dbInstance: IDBDatabase | null = null;
+
+async function openDb(): Promise<IDBDatabase> {
+  if (dbInstance) {
+    return dbInstance;
+  }
+
   requireBrowser();
   return new Promise((resolve, reject) => {
     const req = indexedDB.open(DB_NAME, DB_VERSION);
@@ -23,6 +29,7 @@ function openDb(): Promise<IDBDatabase> {
       reject(req.error ?? new Error("Failed to open IndexedDB"));
     };
     req.onsuccess = (): void => {
+      dbInstance = req.result;
       resolve(req.result);
     };
     req.onupgradeneeded = (): void => {
@@ -43,73 +50,89 @@ function openDb(): Promise<IDBDatabase> {
   });
 }
 
+export const db = {
+  async get<T>(store: IdbStoreName, key: IDBValidKey): Promise<T | undefined> {
+    const db = await openDb();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(store, "readonly");
+      const os = tx.objectStore(store);
+      const g = os.get(key);
+      g.onerror = (): void => {
+        reject(g.error ?? new Error("db.get failed"));
+      };
+      g.onsuccess = (): void => {
+        resolve(g.result as T | undefined);
+      };
+    });
+  },
+
+  async put<T>(store: IdbStoreName, value: T): Promise<void> {
+    const db = await openDb();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(store, "readwrite");
+      const os = tx.objectStore(store);
+      const p = os.put(value);
+      p.onerror = (): void => {
+        reject(p.error ?? new Error("db.put failed"));
+      };
+      tx.oncomplete = (): void => resolve();
+      tx.onerror = (): void => {
+        reject(tx.error ?? new Error("db.put transaction failed"));
+      };
+    });
+  },
+
+  async delete(store: IdbStoreName, key: IDBValidKey): Promise<void> {
+    const db = await openDb();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(store, "readwrite");
+      const os = tx.objectStore(store);
+      const d = os.delete(key);
+      d.onerror = (): void => {
+        reject(d.error ?? new Error("db.delete failed"));
+      };
+      tx.oncomplete = (): void => resolve();
+      tx.onerror = (): void => {
+        reject(tx.error ?? new Error("db.delete transaction failed"));
+      };
+    });
+  },
+
+  async all<T>(store: IdbStoreName): Promise<T[]> {
+    const db = await openDb();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(store, "readonly");
+      const os = tx.objectStore(store);
+      const g = os.getAll();
+      g.onerror = (): void => {
+        reject(g.error ?? new Error("db.all failed"));
+      };
+      g.onsuccess = (): void => {
+        resolve(g.result as T[]);
+      };
+    });
+  },
+};
+
+
+/** Thin helpers for modules that should not depend on the `db` object shape. */
 export async function idbGet<T>(
   store: IdbStoreName,
   key: IDBValidKey,
 ): Promise<T | undefined> {
-  const db = await openDb();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(store, "readonly");
-    const os = tx.objectStore(store);
-    const g = os.get(key);
-    g.onerror = (): void => {
-      reject(g.error ?? new Error("idbGet failed"));
-    };
-    g.onsuccess = (): void => {
-      resolve(g.result as T | undefined);
-    };
-  });
+  return db.get<T>(store, key);
 }
 
 export async function idbPut<T>(
   store: IdbStoreName,
   value: T,
 ): Promise<void> {
-  const db = await openDb();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(store, "readwrite");
-    const os = tx.objectStore(store);
-    const p = os.put(value);
-    p.onerror = (): void => {
-      reject(p.error ?? new Error("idbPut failed"));
-    };
-    tx.oncomplete = (): void => resolve();
-    tx.onerror = (): void => {
-      reject(tx.error ?? new Error("idbPut transaction failed"));
-    };
-  });
+  return db.put<T>(store, value);
 }
 
 export async function idbDelete(
   store: IdbStoreName,
   key: IDBValidKey,
 ): Promise<void> {
-  const db = await openDb();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(store, "readwrite");
-    const os = tx.objectStore(store);
-    const d = os.delete(key);
-    d.onerror = (): void => {
-      reject(d.error ?? new Error("idbDelete failed"));
-    };
-    tx.oncomplete = (): void => resolve();
-    tx.onerror = (): void => {
-      reject(tx.error ?? new Error("idbDelete transaction failed"));
-    };
-  });
-}
-
-export async function idbAll<T>(store: IdbStoreName): Promise<T[]> {
-  const db = await openDb();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(store, "readonly");
-    const os = tx.objectStore(store);
-    const g = os.getAll();
-    g.onerror = (): void => {
-      reject(g.error ?? new Error("idbAll failed"));
-    };
-    g.onsuccess = (): void => {
-      resolve(g.result as T[]);
-    };
-  });
+  return db.delete(store, key);
 }
