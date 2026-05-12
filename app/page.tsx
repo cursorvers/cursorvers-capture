@@ -1,9 +1,11 @@
 "use client";
 
+import { CameraButton } from "@/app/components/CameraButton";
 import { SignInButton } from "@/app/components/SignInButton";
 import { getDeviceShort } from "@/app/lib/device";
+import { getCurrentToken } from "@/app/lib/gis";
 import { idbGet, idbPut } from "@/app/lib/idb";
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useState, type JSX } from "react";
 import { useSearchParams } from "next/navigation";
 
 type ConfigFolderRecord = { key: "folder_id"; value: string };
@@ -12,6 +14,11 @@ function HomeContent(): JSX.Element {
   const searchParams = useSearchParams();
   const [folderId, setFolderId] = useState<string | null>(null);
   const [deviceShort, setDeviceShort] = useState("--------");
+  const [signedIn, setSignedIn] = useState(false);
+  const [lastCapture, setLastCapture] = useState<{
+    filename: string;
+    shot_at: number;
+  } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -38,6 +45,30 @@ function HomeContent(): JSX.Element {
     setDeviceShort(getDeviceShort());
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+    async function syncSignedIn(): Promise<void> {
+      const tok = await getCurrentToken();
+      if (!cancelled) {
+        setSignedIn(tok !== null);
+      }
+    }
+    void syncSignedIn();
+    const id = setInterval(() => void syncSignedIn(), 2000);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, []);
+
+  const handleCaptured = useCallback(
+    (blob: Blob, filename: string, shot_at: number): void => {
+      console.log("S3 capture", { blob, filename, shot_at });
+      setLastCapture({ filename, shot_at });
+    },
+    [],
+  );
+
   const folderLabel = folderId && folderId.length > 0 ? folderId : "未設定";
 
   return (
@@ -48,14 +79,35 @@ function HomeContent(): JSX.Element {
       </p>
       <div className="flex w-full flex-col gap-3 pt-2">
         <SignInButton />
-        <button
-          type="button"
-          disabled
-          className="w-full cursor-not-allowed rounded-xl bg-neutral-800 px-4 py-3 text-sm font-medium opacity-60"
-        >
-          📷 撮影 (S3)
-        </button>
+        {signedIn ? (
+          <CameraButton
+            deviceShort={deviceShort}
+            onCaptured={handleCaptured}
+          />
+        ) : (
+          <button
+            type="button"
+            disabled
+            className="w-full cursor-not-allowed rounded-xl bg-neutral-800 px-4 py-3 text-sm font-medium opacity-60"
+          >
+            📷 撮影 (S3)
+          </button>
+        )}
       </div>
+      {lastCapture ? (
+        <p className="w-full rounded-xl border border-neutral-800 bg-neutral-900/20 px-4 py-2 text-left text-xs text-neutral-400">
+          <span className="text-neutral-500">前回の撮影:</span>{" "}
+          <span className="font-mono text-neutral-200">
+            {lastCapture.filename}
+          </span>
+          <span className="mt-1 block text-neutral-500">
+            shot_at:{" "}
+            <span className="font-mono text-neutral-300">
+              {lastCapture.shot_at}
+            </span>
+          </span>
+        </p>
+      ) : null}
       <div className="w-full rounded-xl border border-neutral-800 bg-neutral-900/30 px-4 py-3 text-left text-xs text-neutral-400">
         <p>
           <span className="text-neutral-500">設定:</span> フォルダ ID ={" "}
@@ -66,7 +118,7 @@ function HomeContent(): JSX.Element {
           <span className="font-mono text-neutral-200">{deviceShort}</span>
         </p>
       </div>
-      <p className="mt-4 text-xs text-neutral-500">v0.2 — S2 OAuth</p>
+      <p className="mt-4 text-xs text-neutral-500">v0.3 — S3 camera</p>
     </main>
   );
 }
