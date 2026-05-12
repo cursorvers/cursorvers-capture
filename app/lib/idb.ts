@@ -4,7 +4,8 @@ export type IdbStoreName =
   | "auth"
   | "uploadSessions"
   | "pendingUploads"
-  | "config";
+  | "config"
+  | "shareHistory";
 
 const DB_NAME = "gdrive-uploader";
 const DB_VERSION = 1;
@@ -46,7 +47,9 @@ async function openDb(): Promise<IDBDatabase> {
       if (!db.objectStoreNames.contains("config")) {
         db.createObjectStore("config", { keyPath: "key" });
       }
-    };
+      if (!db.objectStoreNames.contains("shareHistory")) {
+        db.createObjectStore("shareHistory", { keyPath: "id" });
+      }    };
   });
 }
 

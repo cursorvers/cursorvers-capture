@@ -11,6 +11,7 @@ import { getDeviceShort } from "@/app/lib/device";
 import { getCurrentToken } from "@/app/lib/gis";
 import { uploadBlob } from "@/app/lib/drive"; // Import uploadBlob
 import { Chatback } from "@/app/components/Chatback"; // Import Chatback component
+import { ShareButton } from "@/app/components/ShareButton"; // Import ShareButton component
 
 type ConfigFolderRecord = { key: "folder_id"; value: string }; // Re-added type definition
 
@@ -264,7 +265,10 @@ function HomeContent(): JSX.Element {
       ) : null}
 
       {statusMessage === '✅ アップロード完了' && uploadedFileId && (
-        <Chatback driveFileId={uploadedFileId} />
+        <div className="flex items-center justify-center mt-4">
+          <Chatback driveFileId={uploadedFileId} />
+          <ShareButton driveFileId={uploadedFileId} filename={lastCapture?.filename || 'ファイル'} />
+        </div>
       )}
 
       <div className="w-full rounded-xl border border-neutral-800 bg-neutral-900/30 px-4 py-3 text-left text-xs text-neutral-400" data-testid="status-panel">

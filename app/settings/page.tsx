@@ -1,5 +1,4 @@
 'use client';
-
 import { useState, useEffect, type JSX } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -7,6 +6,7 @@ import { idbGet, idbPut, idbClear } from '@/app/lib/idb';
 import { getDeviceShort, getDeviceId } from '@/app/lib/device';
 import { revokeToken } from '@/app/lib/gis'; // Assuming a revokeToken function exists for sign-out
 import { Suspense } from 'react';
+import { getShareHistory, revokeFromHistory, ShareRecord } from '@/app/lib/share-history';
 
 type ConfigFolderRecord = { key: 'folder_id'; value: string };
 
@@ -17,6 +17,35 @@ function SettingsContent(): JSX.Element {
   const [deviceId, setDeviceId] = useState('--------');
   const [deviceShort, setDeviceShort] = useState('--------');
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [shares, setShares] = useState<ShareRecord[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadShares() {
+      const recentShares = await getShareHistory();
+      if (!cancelled) {
+        setShares(recentShares);
+      }
+    }
+    void loadShares();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const handleRevokeShare = async (driveFileId: string, permissionId: string) => {
+    if (window.confirm('本当にこの共有を取り消しますか？')) {
+      try {
+        await revokeFromHistory(driveFileId, permissionId);
+        setStatusMessage('共有を取り消しました。');
+        // Refresh shares list
+        const updatedShares = await getShareHistory();
+        setShares(updatedShares);
+      } catch (error: unknown) {
+        setStatusMessage(`共有の取消に失敗しました: ${(error instanceof Error ? error.message : 'Unknown error')}`);
+      }
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -122,6 +151,45 @@ function SettingsContent(): JSX.Element {
             <span className="text-neutral-500">ショート ID:</span>{' '}
             <span className="font-mono text-neutral-200">{deviceShort}</span>
           </p>
+        </div>
+
+        {/* 最近の共有 */}
+        <div className="w-full rounded-xl border border-neutral-800 bg-neutral-900/30 px-4 py-3 text-left text-xs text-neutral-400 mb-4">
+          <h2 className="block text-neutral-200 text-sm font-medium mb-3">最近の共有 (直近 {shares.length} 件)</h2>
+          {shares.length === 0 ? (
+            <p className="text-neutral-500">共有履歴はありません。</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-neutral-700">
+                <thead>
+                  <tr>
+                    <th scope="col" className="px-1 py-2 text-left text-xs font-medium text-neutral-300 uppercase">ファイル名</th>
+                    <th scope="col" className="px-1 py-2 text-left text-xs font-medium text-neutral-300 uppercase">共有先</th>
+                    <th scope="col" className="px-1 py-2 text-left text-xs font-medium text-neutral-300 uppercase">共有日時</th>
+                    <th scope="col" className="px-1 py-2"></th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-neutral-800">
+                  {shares.map((share) => (
+                    <tr key={share.id}>
+                      <td className="px-1 py-2 whitespace-nowrap text-neutral-200 break-all text-xs">{share.filename || 'N/A'}</td>
+                      <td className="px-1 py-2 whitespace-nowrap text-neutral-200 break-all text-xs">{share.email}</td>
+                      <td className="px-1 py-2 whitespace-nowrap text-neutral-400 text-xs">{new Date(share.sharedAt).toLocaleString()}</td>
+                      <td className="px-1 py-2 whitespace-nowrap text-right text-sm font-medium">
+                        <button
+                          onClick={() => handleRevokeShare(share.driveFileId, share.permissionId)}
+                          className="text-red-400 hover:text-red-600 mr-2"
+                          aria-label="共有を取り消す"
+                        >
+                          [取消]
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
 
         {/* Sign-out button */}
