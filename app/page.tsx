@@ -9,8 +9,10 @@ import { useSearchParams } from "next/navigation";
 import { idbGet, idbPut } from "@/app/lib/idb";
 import { getDeviceShort } from "@/app/lib/device";
 import { getCurrentToken } from "@/app/lib/gis";
+import { uploadBlob } from "@/app/lib/drive"; // Import uploadBlob
+import { Chatback } from "@/app/components/Chatback"; // Import Chatback component
 
-type ConfigFolderRecord = { key: "folder_id"; value: string };
+type ConfigFolderRecord = { key: "folder_id"; value: string }; // Re-added type definition
 
 // ... (rest of the imports)
 
@@ -24,6 +26,7 @@ function HomeContent(): JSX.Element {
     filename: string;
     shot_at: number;
   } | null>(null);
+  const [uploadedFileId, setUploadedFileId] = useState<string | null>(null); // NEW
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [isOffline, setIsOffline] = useState(false);
   const [newFolderId, setNewFolderId] = useState('');
@@ -105,12 +108,54 @@ function HomeContent(): JSX.Element {
   }, []);
 
   const handleCaptured = useCallback(
-    (blob: Blob, filename: string, shot_at: number): void => {
+    async (blob: Blob, filename: string, shot_at: number): Promise<void> => {
       console.log("S3 capture", { blob, filename, shot_at });
       setLastCapture({ filename, shot_at });
       setStatusMessage(`「${filename}」を撮影しました。`);
+      setUploadedFileId(null); // Reset before new upload
+
+      if (!folderId) {
+        setStatusMessage('エラー: フォルダIDが設定されていません。');
+        return;
+      }
+
+      try {
+        setStatusMessage('Google Driveへアップロード中…');
+        const { fileId } = await uploadBlob(blob, filename, folderId);
+        console.log('Upload complete, file ID:', fileId);
+
+        setUploadedFileId(fileId);
+        setStatusMessage('✅ アップロード完了');
+
+        // Dispatch to capture-webhook
+        const sha1 = 'dummy-sha1'; // Placeholder, replace with actual SHA1 hash if available
+        const webhookResponse = await fetch('/api/capture-webhook', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${process.env.NEXT_PUBLIC_WEBHOOK_SECRET || 'dummy-secret'}`, // Use NEXT_PUBLIC_ for client-side
+          },
+          body: JSON.stringify({
+            drive_file_id: fileId,
+            filename,
+            mime: 'image/jpeg',
+            size: blob.size,
+            shot_at,
+            sha1,
+          }),
+        });
+
+        if (!webhookResponse.ok) {
+          const errorText = await webhookResponse.text();
+          console.error('Webhook dispatch failed:', errorText);
+          // Do not update statusMessage on webhook failure, as per spec (Tier B is additive)
+        }
+      } catch (error) {
+        console.error('Upload or webhook failed:', error);
+        setStatusMessage(`アップロードまたは処理に失敗しました: ${(error as Error).message}`);
+      }
     },
-    [],
+    [folderId],
   );
 
   const folderLabel = folderId && folderId.length > 0 ? folderId : "未設定";
@@ -217,6 +262,10 @@ function HomeContent(): JSX.Element {
           </span>
         </p>
       ) : null}
+
+      {statusMessage === '✅ アップロード完了' && uploadedFileId && (
+        <Chatback driveFileId={uploadedFileId} />
+      )}
 
       <div className="w-full rounded-xl border border-neutral-800 bg-neutral-900/30 px-4 py-3 text-left text-xs text-neutral-400" data-testid="status-panel">
         <p>

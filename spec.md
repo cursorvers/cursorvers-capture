@@ -248,6 +248,104 @@ Critical fixes applied to v2.0 before implementation starts:
 - S9 増分: CSV を append 設計に
 - 累計 % 配分は v2.0 維持 (S6+5, S7+10, S8+15, S9+5, S10+3, S11+2 = +40%)
 
+---
+
+## v4.1 canonical (2026-05-13 — 多エージェント 3 round 監査昇華版)
+
+### Z0. canonical 宣言
+本セクション以降が **唯一の有効仕様** (v1.1/v2.1/v3.0/v4.0 は historical archive、参考のみ)。
+3 agent 監査 (GLM strategy + Gemini blind-spot + GLM math-reasoning) で確定。
+
+### Z1. 目的の再定義 (最終)
+- **「Cursorvers Capture — 撮影 → Google Drive 汎用アップローダー、Codex App Server で会話的 AI 統合、Cursorvers Advisory ポータルとしての副次機能を持つ」**
+- 用途は user 任意 (税務・家族・業務・なんでも)
+- 配布: Cursorvers 顧問先 + パートナー税理士法人、限定公開 ~100 users、GCP Testing mode
+
+### Z2. アーキテクチャ: ハイブリッド設計 (★最重要 fix)
+
+```
+[iPhone Safari / Android Chrome / installed PWA]
+         ↓
+  Tier A: PWA 同期本体 (S1-S6 流用、5-sec 約束を達成)
+    撮影 → blob → Drive resumable upload (drive.file)
+    Drive 書込完了 → POST /api/capture-webhook (Vercel API Route)
+         ↓
+  Tier B: Codex App Server 非同期層 (新規 S7+)
+    /api/capture-webhook → Codex App Server (Apps SDK)
+    Chatback 生成 (撮影内容理解、metadata 整形、コメント) 
+         ↓
+    Push 通知 or 次回起動時表示 (PWA + ChatGPT App 両対応)
+         ↓
+  ChatGPT App セカンダリ (S11): 振り返り集計 / 任意共有 / Q&A / Advisory 連携
+```
+
+**根拠**: 3 agent 一致で「3-tap/5-sec は ChatGPT Apps SDK 環境で物理的に困難」と判定 → Tier A を PWA で同期完結させ、Codex は非同期付加価値層に分離。S1-S6 投資全活用、SDK ロックイン回避。
+
+### Z3. データ責任分界 (法的 fix)
+- **Cursorvers = パススルー型データプロセッサ**、データコントローラはユーザー
+- 撮影画像は **Cursorvers サーバーを通過しない** (client → Drive 直送、現 S1-S6 実装)
+- Codex App Server への送信は **metadata 抽出時のみ** (画像本体は base64 でも 1 回送信、即破棄、永続化なし)
+- Privacy/Terms に明記:
+  - prohibited use cases (違法、CSAM、機密漏洩、第三者著作権侵害)
+  - Cursorvers モデレーション義務免責
+  - データ削除権 (ユーザーが Drive 側で削除すれば Cursorvers 側にコピーなし)
+
+### Z4. 確定機能 (Z1-Z3 を満たす実装範囲)
+- **F1. 撮影 → Drive resumable upload** (S4 完納) — Tier A
+- **F2. OAuth (drive.file scope)** (S2 完納) — Tier A
+- **F3. PWA shell (mobile-first, install 任意)** (S1+S5 完納) — Tier A
+- **F4. Cursorvers branding** (S6 完納)
+- **F5. tier flag system (招待 whitelist + Pro env)** (S6 完納)
+- **F6. Codex App Server Chatback (非同期)** — Tier B (S7)
+- **F7. 任意共有 (Drive Permission API、招待 link で advisor pre-fill 可)** (S8)
+- **F8. OCR optional (汎用 text 抽出、confidence ≥90% skip / <90% mandatory inline edit)** (S9)
+- **F9. 音声メモ optional (PWA MediaRecorder → Codex App Server)** (S10)
+- **F10. ChatGPT App セカンダリ画面 (振り返り集計 + Cursorvers Advisory Q&A)** (S11)
+
+### Z5. 非機能 (最終)
+- **N1. bundle JS gzip ≤ 140 KB hard** (現 93.9 KB)
+- **N2. PWA Lighthouse ≥ 90 / Performance ≥ 95**
+- **N3. Vercel KV 暗号化 AES-256-GCM**、鍵 rotation 月次、user 解約時 token 即破棄
+- **N4. GCP 100 名上限到達時 Graceful Degradation** (新規登録停止 + Cursorvers 問合せ案内)
+- **N5. SPOF mitigation**: ChatGPT 障害時 Tier A (PWA) は単独動作可、Chatback は次回起動時 retry
+
+### Z6. 価格 scope 明確化 (GLM math-reasoning 指摘 fix)
+- **「user 視点 = 完全無料」** (Cursorvers 顧問先・パートナー税理士法人の顧客は ¥0 で利用)
+- **「Cursorvers 視点 = 経費 ≦ ¥3,000/月」** (Vercel hosting + Drive API はほぼ ¥0、Codex App Server は各 user の ChatGPT subscription が負担、わずかな KV 利用料のみ)
+- Phase B (Q4 以降) で有料化検討、その際は新 SKU 化 → memory v3.4 凍結ルール期限切れと整合
+
+### Z7. 差別化軸の継続的拡張 commitment (Gemini 「短期陳腐化」指摘 fix)
+- **Phase A (今〜Q4)**: Codex Chatback + Cursorvers Advisory 連携 stub
+- **Phase B (Q4〜)**: Cursorvers advisor 連携 GA (顧問先限定 Q&A、advisor 返信 inline)
+- **Phase C (2027〜)**: 業種別 OCR pack (オプション、white-label 税理士法人向け)
+- **Phase D**: Vault (FUGUE Knowledge Engine) 統合、過去全アップロードを横断検索
+- 鍵: Cursorvers ブランドの **人間 advisor 接続性** が iOS/Drive ネイティブ AI に対する long-term moat
+
+### Z8. canonical スライス計画
+| Slice | 内容 | 増分 | 累計 | 委譲 |
+|---|---|---|---|---|
+| S1-S6 | scaffold/OAuth/camera/upload/polish/branding+tier | — | 65% | 完納 |
+| **S7** | **Drive write 完了 → /api/capture-webhook → Codex App Server 非同期 Chatback (Apps SDK manifest + Codex SDK 統合 + IDB に最新 Chatback 履歴)** | +10% | 75% | gemini-flash |
+| S8 | 任意共有 (Drive Permission API + プレビュー UI + Undo + 招待 link advisor pre-fill) | +5% | 80% | gemini-flash |
+| S9 | optional OCR (Codex/Gemini multimodal、confidence flow、汎用 text 抽出) | +5% | 85% | gemini-flash |
+| S10 | optional 音声メモ (PWA MediaRecorder → Codex App Server 整形 → metadata 焼込) | +5% | 90% | gemini-flash |
+| S11 | ChatGPT App セカンダリ画面 (Apps SDK で振り返り集計 + Cursorvers Advisory Q&A stub) | +5% | 95% | gemini-flash |
+| S12 | LP 汎用化 + Privacy (パススルー型) + Terms (prohibited list) + GCP Grace Deg + Vercel KV AES-256 + Advisory 連携 stub + Vercel prod deploy 手順 | +5% | 100% | gemini-flash |
+
+### Z9. 現状達成度
+- **65% (S1-S6 完納)、残 6 slices で 100%**
+- 想定スループット: 1 slice 25-40 分 × 6 = **2.5-4 時間で 100%**
+
+### Z10. 監査確認済リスクと対処
+- ✅ 3-tap/5-sec 物理的不可能 → ハイブリッド設計で Tier A 同期
+- ✅ v1-v3 累積矛盾 → v4.1 canonical 宣言、過去版 archive
+- ✅ 違法コンテンツ免責 → Z3 で明記
+- ✅ GCP 100 上限 → N4 Graceful Degradation
+- ✅ Vercel KV 暗号化 → N3 AES-256-GCM + rotation + revoke
+- ✅ 「完全無料」と「経費 ¥0」scope 不分離 → Z6 で明示分離
+- ✅ Codex Chatback 短期陳腐化 → Z7 Cursorvers Advisory 連携を long-term moat
+- ✅ 戦略 ROI 「単なる便利ツール」 → Cursorvers Advisory ポータルとして再定義 (Z1)
+
 ### B9. v2.1 final (GLM critique 統合 2026-05-13)
 - **N9 fix (重要)**: `NEXT_PUBLIC_PRO_USERS` も漏洩源。**`PRO_USERS` server-only env** に変更、Edge Middleware で判定。Pro tier flag は middleware が response header `X-Tier: pro` 等で client に伝える、または `/api/me` で取得
 - **F12 を Phase 2 へ延期 (dead code 削除)**: 全員 Pro 付与の現状で 50/月 counter は無意味。実装せず spec から外す。スライス再計算: S9 から +1% 削減 (4→3%)、S10 が +1% 拡張 (3→4%)。累計は不変 (100%)
