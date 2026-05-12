@@ -131,9 +131,30 @@ async function requestToken(prompt: "consent" | ""): Promise<{
           scope: "drive.file",
         };
         void idbPut("auth", record)
-          .then(() =>
-            resolve({ access_token: resp.access_token!, expires_in: expiresIn }),
-          )
+          .then(async () => {
+            // Fetch user email
+            const userInfoRes = await fetch(
+              "https://www.googleapis.com/oauth2/v3/userinfo",
+              {
+                headers: {
+                  Authorization: `Bearer ${resp.access_token}`,
+                },
+              },
+            );
+            const userInfo = await userInfoRes.json();
+            const email = userInfo.email;
+
+            // POST to /api/me to set cookie and get tier info
+            await fetch("/api/me", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({ email, access_token: resp.access_token }),
+            });
+
+            resolve({ access_token: resp.access_token!, expires_in: expiresIn });
+          })
           .catch(reject);
       },
     });
@@ -160,6 +181,7 @@ export async function silentRefresh(): Promise<{
 export async function revokeToken(): Promise<void> {
   requireBrowser();
   const record = await idbGet<AuthRecord>("auth", "current");
+  await fetch("/api/me", { method: "DELETE" }).catch(() => undefined); // Best-effort clear server cookie
   await idbDelete("auth", "current").catch(() => undefined);
   try {
     await loadGisScript();

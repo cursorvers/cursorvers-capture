@@ -1,11 +1,10 @@
 import type { Metadata, Viewport } from "next";
-import "./globals.css";
-import { SWRegistry } from "./components/SWRegistry";
+
 
 export const metadata: Metadata = {
-  title: "Gdrive Uploader",
+  title: "Cursorvers Receipt — レシート共有 PWA",
   description:
-    "Auto-upload smartphone photos to a specified Google Drive folder",
+    "Cursorvers 顧問先専用、税理士と Google Drive でレシートをシェア",
   manifest: "/manifest.webmanifest",
 };
 
@@ -16,6 +15,10 @@ export const viewport: Viewport = {
   maximumScale: 1,
 };
 
+import { SWRegistry } from "./components/SWRegistry";
+import { Header } from "./components/Header";
+import { Footer } from "./components/Footer";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -23,9 +26,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ja">
-      <body className="antialiased bg-neutral-950 text-neutral-50 min-h-screen">
+      <body className="antialiased min-h-screen flex flex-col">
         <SWRegistry />
-        {children}
+        <Header />
+        <main className="flex-grow">{children}</main>
+        <Footer />
       </body>
     </html>
   );

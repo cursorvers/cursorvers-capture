@@ -1,23 +1,22 @@
 "use client";
 
+import { useTier } from "@/app/lib/tier";
+
 import { CameraButton } from "@/app/components/CameraButton";
 import { SignInButton } from "@/app/components/SignInButton";
+import { Suspense, useCallback, useEffect, useState, type JSX } from "react";
+import { useSearchParams } from "next/navigation";
+import { idbGet, idbPut } from "@/app/lib/idb";
 import { getDeviceShort } from "@/app/lib/device";
 import { getCurrentToken } from "@/app/lib/gis";
-import { idbGet, idbPut } from "@/app/lib/idb";
-import {
-  Suspense,
-  useCallback,
-  useEffect,
-  useState,
-  type JSX,
-} from "react";
-import { useSearchParams } from "next/navigation";
 
 type ConfigFolderRecord = { key: "folder_id"; value: string };
 
+// ... (rest of the imports)
+
 function HomeContent(): JSX.Element {
   const searchParams = useSearchParams();
+  const { tier } = useTier(); // Call useTier hook
   const [folderId, setFolderId] = useState<string | null>(null);
   const [deviceShort, setDeviceShort] = useState("--------");
   const [signedIn, setSignedIn] = useState(false);
@@ -117,11 +116,20 @@ function HomeContent(): JSX.Element {
   const folderLabel = folderId && folderId.length > 0 ? folderId : "未設定";
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-md flex-col items-center justify-center gap-4 p-6 text-center">
-      <h1 className="text-2xl font-semibold tracking-tight">Gdrive Uploader</h1>
-      <p className="text-sm leading-relaxed text-neutral-400">
-        撮影 → JPEG を端末内で保持（S3）。Drive アップロードは次フェーズ。
-      </p>
+    <main className="mx-auto flex min-h-screen max-w-md flex-col items-center justify-center gap-4 p-6 text-center bg-navy-900 text-gray-100">
+      <div className="mb-4 text-center">
+        <h1 className="text-4xl font-extrabold text-orange-400 tracking-tight leading-tight">
+          Cursorvers Receipt
+        </h1>
+        <p className="mt-2 text-lg text-gray-300">
+          撮影 → 指定の Drive フォルダへ即同期
+        </p>
+        <span
+          className={`mt-2 inline-block px-3 py-1 rounded-full text-xs font-semibold ${tier === 'pro' ? 'bg-gradient-to-r from-yellow-400 to-orange-500 text-black' : 'bg-gray-700 text-gray-200'}`}
+        >
+          {tier === 'pro' ? 'PRO' : 'FREE'}
+        </span>
+      </div>
 
       {isOffline && (
         <div className="w-full rounded-xl border border-yellow-800 bg-yellow-900/20 px-4 py-3 text-left text-sm text-yellow-300">
