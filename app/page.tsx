@@ -25,21 +25,59 @@ function HomeContent(): JSX.Element {
     filename: string;
     shot_at: number;
   } | null>(null);
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [isOffline, setIsOffline] = useState(false);
+  const [newFolderId, setNewFolderId] = useState('');
+  const [currentOrigin, setCurrentOrigin] = useState(''); // NEW
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setCurrentOrigin(window.location.origin);
+    }
+  }, []); // Run once on client-side mount
+
+  useEffect(() => {
+    const handleOnline = () => setIsOffline(false);
+    const handleOffline = () => setIsOffline(true);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    setIsOffline(!navigator.onLine); // Initial check
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
     void (async () => {
       const folderParam = searchParams.get("folder")?.trim() ?? "";
-      const existing = await idbGet<ConfigFolderRecord>("config", "folder_id");
-      if (folderParam && existing?.value !== folderParam) {
-        await idbPut<ConfigFolderRecord>("config", {
-          key: "folder_id",
-          value: folderParam,
-        });
-      }
-      const latest = await idbGet<ConfigFolderRecord>("config", "folder_id");
-      if (!cancelled) {
-        setFolderId(latest?.value ?? null);
+
+      if (folderParam) {
+        if (!cancelled) {
+          setFolderId(folderParam); // Immediately set for display
+        }
+        // Then, asynchronously handle IDB for persistence
+        void (async () => {
+          const existing = await idbGet<ConfigFolderRecord>("config", "folder_id");
+          if (existing?.value !== folderParam) {
+            await idbPut<ConfigFolderRecord>("config", {
+              key: "folder_id",
+              value: folderParam,
+            });
+          }
+        })();
+      } else {
+        // If no URL param, try to load from IDB
+        void (async () => {
+          const existing = await idbGet<ConfigFolderRecord>("config", "folder_id");
+          if (!cancelled) {
+            setFolderId(existing?.value ?? null);
+          }
+        })();
       }
     })();
     return () => {
@@ -71,6 +109,7 @@ function HomeContent(): JSX.Element {
     (blob: Blob, filename: string, shot_at: number): void => {
       console.log("S3 capture", { blob, filename, shot_at });
       setLastCapture({ filename, shot_at });
+      setStatusMessage(`「${filename}」を撮影しました。`);
     },
     [],
   );
@@ -83,8 +122,61 @@ function HomeContent(): JSX.Element {
       <p className="text-sm leading-relaxed text-neutral-400">
         撮影 → JPEG を端末内で保持（S3）。Drive アップロードは次フェーズ。
       </p>
+
+      {isOffline && (
+        <div className="w-full rounded-xl border border-yellow-800 bg-yellow-900/20 px-4 py-3 text-left text-sm text-yellow-300">
+          <p className="font-semibold">オフラインです。</p>
+          <p className="mt-1 text-xs">ネットワーク接続を確認してください。</p>
+        </div>
+      )}
+
+      {!signedIn && folderId !== null && ( // if not signed in, but folder is set, prompt for sign in
+        <div className="w-full rounded-xl border border-red-800 bg-red-900/20 px-4 py-3 text-left text-sm text-red-300">
+          <p className="font-semibold">サインインしていません。</p>
+          <p className="mt-1 text-xs">Googleアカウントにサインインして続行してください。</p>
+        </div>
+      )}
+
+      {folderId === null && (
+        <div className="w-full rounded-xl border border-red-800 bg-red-900/20 px-4 py-3 text-left text-sm text-red-300">
+          <p>
+            <span className="font-semibold">エラー:</span> フォルダ ID が設定されていません。
+          </p>
+          <p className="mt-2 text-xs">
+            アップロード先の Google Drive フォルダ ID を入力してください。
+          </p>
+          <div className="mt-3 flex gap-2">
+            <input
+              type="text"
+              value={newFolderId}
+              onChange={(e) => setNewFolderId(e.target.value)}
+              placeholder="フォルダIDを入力"
+              className="flex-grow rounded-md border border-neutral-700 bg-neutral-900 px-3 py-2 text-sm text-neutral-200 focus:border-blue-500 focus:outline-none"
+              aria-label="Google Drive フォルダ ID"
+            />
+            <button
+              type="button"
+              onClick={async () => {
+                if (newFolderId.trim()) {
+                  await idbPut<ConfigFolderRecord>("config", {
+                    key: "folder_id",
+                    value: newFolderId.trim(),
+                  });
+                  setFolderId(newFolderId.trim());
+                  setNewFolderId('');
+                  setStatusMessage(`フォルダ ID を「${newFolderId.trim()}」に設定しました。`);
+                }
+              }}
+              className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-neutral-900"
+              aria-label="フォルダIDを保存"
+            >
+              保存
+            </button>
+          </div>
+        </div>
+      )}
       <div className="flex w-full flex-col gap-3 pt-2">
-        <SignInButton />
+        <SignInButton aria-label="Googleアカウントでサインイン" />
         {signedIn ? (
           <CameraButton
             deviceShort={deviceShort}
@@ -95,6 +187,8 @@ function HomeContent(): JSX.Element {
             type="button"
             disabled
             className="w-full cursor-not-allowed rounded-xl bg-neutral-800 px-4 py-3 text-sm font-medium opacity-60"
+            aria-label="サインイン後にカメラを起動"
+            data-testid="camera-button-disabled"
           >
             📷 撮影 (S3)
           </button>
@@ -116,17 +210,80 @@ function HomeContent(): JSX.Element {
         </p>
       ) : null}
 
-      <div className="w-full rounded-xl border border-neutral-800 bg-neutral-900/30 px-4 py-3 text-left text-xs text-neutral-400">
+      <div className="w-full rounded-xl border border-neutral-800 bg-neutral-900/30 px-4 py-3 text-left text-xs text-neutral-400" data-testid="status-panel">
         <p>
           <span className="text-neutral-500">設定:</span> フォルダ ID ={" "}
-          <span className="font-mono text-neutral-200">{folderLabel}</span>
+          <span className="font-mono text-neutral-200" data-testid="folder-id-display">{folderLabel}</span>
         </p>
         <p className="mt-1">
           <span className="text-neutral-500">デバイス:</span>{" "}
           <span className="font-mono text-neutral-200">{deviceShort}</span>
         </p>
       </div>
+
+      <div className="w-full">
+        <details className="rounded-xl border border-neutral-800 bg-neutral-900/30 px-4 py-3 text-left text-xs text-neutral-400">
+          <summary className="cursor-pointer text-neutral-200">
+            シェア方法を詳しく見る
+          </summary>
+          <div className="mt-2 text-neutral-400">
+            <p className="mb-2">
+              このアプリを友達とシェアするには、以下の URL を送るだけです。彼らも自分の Google アカウントでログインして、このフォルダ ID を入力すれば、一緒にアップロードできます。
+            </p>
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                readOnly
+                value={
+                  folderId
+                    ? `${currentOrigin}/?folder=${folderId}`
+                    : currentOrigin
+                }
+                className="flex-grow rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2 text-xs text-neutral-200"
+                aria-label="シェアリンク"
+              />
+              <button
+                type="button"
+                onClick={async () => {
+                  const shareUrl = folderId
+                    ? `${currentOrigin}/?folder=${folderId}`
+                    : currentOrigin;
+
+                  if (navigator.share) {
+                    try {
+                      await navigator.share({
+                        title: 'Gdrive Uploader',
+                        text: 'Google Drive Uploaderで写真をシェア！',
+                        url: shareUrl,
+                      });
+                      setStatusMessage('シェアリンクを送信しました！');
+                    } catch (error) {
+                      console.error('Error sharing:', error);
+                      setStatusMessage('シェアに失敗しました。クリップボードにコピーします。');
+                      await navigator.clipboard.writeText(shareUrl);
+                      setStatusMessage('シェアリンクをクリップボードにコピーしました！');
+                    }
+                  } else {
+                    await navigator.clipboard.writeText(shareUrl);
+                    setStatusMessage('シェアリンクをクリップボードにコピーしました！');
+                  }
+                }}
+                className="rounded-md bg-blue-600 px-4 py-2 text-xs font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-neutral-900"
+                aria-label="シェアリンクをコピー"
+              >
+                コピー
+              </button>
+            </div>
+          </div>
+        </details>
+      </div>
       <p className="mt-4 text-xs text-neutral-500">v0.3 — S3 camera</p>
+      <div
+        aria-live="polite"
+        className="sr-only"
+      >
+        {statusMessage}
+      </div>
     </main>
   );
 }
@@ -135,8 +292,17 @@ export default function Home(): JSX.Element {
   return (
     <Suspense
       fallback={
-        <main className="mx-auto flex min-h-screen max-w-md flex-col items-center justify-center p-6 text-neutral-400">
-          読み込み中…
+        <main className="mx-auto flex min-h-screen max-w-md flex-col items-center justify-center gap-4 p-6 text-center animate-pulse">
+          <div className="h-8 bg-neutral-800 rounded-md w-48 mb-4"></div>
+          <div className="h-4 bg-neutral-800 rounded-md w-64 mb-8"></div>
+          <div className="flex w-full flex-col gap-3 pt-2">
+            <div className="h-12 bg-neutral-700 rounded-xl w-full"></div>
+            <div className="h-12 bg-neutral-700 rounded-xl w-full"></div>
+          </div>
+          <div className="w-full rounded-xl border border-neutral-800 bg-neutral-900/30 px-4 py-3 text-left text-xs text-neutral-400">
+            <div className="h-4 bg-neutral-800 rounded-md w-32 mb-1"></div>
+            <div className="h-4 bg-neutral-800 rounded-md w-48"></div>
+          </div>
         </main>
       }
     >

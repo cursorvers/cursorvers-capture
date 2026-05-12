@@ -3,6 +3,7 @@ const csp =
   "default-src 'self'; connect-src 'self' https://*.googleapis.com https://accounts.google.com; img-src 'self' blob: data:; script-src 'self' https://accounts.google.com; style-src 'self' 'unsafe-inline'";
 
 const nextConfig = {
+  output: 'standalone', // Added this line
   async headers() {
     return [
       {

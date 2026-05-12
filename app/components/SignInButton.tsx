@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import {
   getCurrentToken,
   signIn,
-  signOut as gisSignOut,
+  revokeToken,
 } from "@/app/lib/gis";
 
 export function SignInButton(): JSX.Element {
@@ -44,7 +44,7 @@ export function SignInButton(): JSX.Element {
     setError(null);
     setBusy(true);
     try {
-      await gisSignOut();
+      await revokeToken();
       setSignedIn(false);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
@@ -62,6 +62,7 @@ export function SignInButton(): JSX.Element {
           disabled={busy}
           onClick={() => void onSignIn()}
           className="w-full rounded-xl bg-neutral-800 px-4 py-3 text-sm font-medium hover:bg-neutral-700 disabled:opacity-60"
+          data-testid="signin-button-google"
         >
           Google でサインイン
         </button>

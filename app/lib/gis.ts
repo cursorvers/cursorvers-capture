@@ -157,7 +157,7 @@ export async function silentRefresh(): Promise<{
   return requestToken("");
 }
 
-export async function signOut(): Promise<void> {
+export async function revokeToken(): Promise<void> {
   requireBrowser();
   const record = await idbGet<AuthRecord>("auth", "current");
   await idbDelete("auth", "current").catch(() => undefined);

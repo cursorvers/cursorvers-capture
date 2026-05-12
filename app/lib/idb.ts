@@ -136,3 +136,19 @@ export async function idbDelete(
 ): Promise<void> {
   return db.delete(store, key);
 }
+
+export async function idbClear(store: IdbStoreName): Promise<void> {
+  const db = await openDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(store, "readwrite");
+    const os = tx.objectStore(store);
+    const c = os.clear();
+    c.onerror = (): void => {
+      reject(c.error ?? new Error("db.clear failed"));
+    };
+    tx.oncomplete = (): void => resolve();
+    tx.onerror = (): void => {
+      reject(tx.error ?? new Error("db.clear transaction failed"));
+    };
+  });
+}
