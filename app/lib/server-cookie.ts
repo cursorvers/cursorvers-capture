@@ -27,3 +27,12 @@ export function verify(signedValue: string): string | null {
     return null;
   }
 }
+
+import { cookies } from 'next/headers';
+const COOKIE_NAME = 'gdrive_email';
+
+export async function getGdriveEmail(): Promise<string | null> {
+  const cookieStore = cookies();
+  const signedEmail = cookieStore.get(COOKIE_NAME)?.value;
+  return signedEmail ? verify(signedEmail) : null;
+}

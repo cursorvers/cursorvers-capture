@@ -12,6 +12,7 @@ import { getCurrentToken } from "@/app/lib/gis";
 import { uploadBlob } from "@/app/lib/drive"; // Import uploadBlob
 import { Chatback } from "@/app/components/Chatback"; // Import Chatback component
 import { ShareButton } from "@/app/components/ShareButton"; // Import ShareButton component
+import { OcrPanel } from '@/app/components/OcrPanel';
 
 type ConfigFolderRecord = { key: "folder_id"; value: string }; // Re-added type definition
 
@@ -28,6 +29,7 @@ function HomeContent(): JSX.Element {
     shot_at: number;
   } | null>(null);
   const [uploadedFileId, setUploadedFileId] = useState<string | null>(null); // NEW
+  const [imageBase64, setImageBase64] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [isOffline, setIsOffline] = useState(false);
   const [newFolderId, setNewFolderId] = useState('');
@@ -114,6 +116,18 @@ function HomeContent(): JSX.Element {
       setLastCapture({ filename, shot_at });
       setStatusMessage(`「${filename}」を撮影しました。`);
       setUploadedFileId(null); // Reset before new upload
+      setImageBase64(null); // Reset image base64
+
+      // Convert blob to base64
+      const reader = new FileReader();
+      reader.readAsDataURL(blob);
+      reader.onloadend = () => {
+        const base64data = reader.result;
+        if (typeof base64data === 'string') {
+          // Remove the data:image/jpeg;base64, prefix
+          setImageBase64(base64data.replace(/^data:image\/(png|jpeg|gif|webp);base64,/, ''));
+        }
+      };
 
       if (!folderId) {
         setStatusMessage('エラー: フォルダIDが設定されていません。');
@@ -265,9 +279,14 @@ function HomeContent(): JSX.Element {
       ) : null}
 
       {statusMessage === '✅ アップロード完了' && uploadedFileId && (
-        <div className="flex items-center justify-center mt-4">
-          <Chatback driveFileId={uploadedFileId} />
-          <ShareButton driveFileId={uploadedFileId} filename={lastCapture?.filename || 'ファイル'} />
+        <div className="flex flex-col items-center justify-center mt-4 w-full">
+          <div className="flex items-center justify-center w-full mb-4">
+            <Chatback driveFileId={uploadedFileId} />
+            <ShareButton driveFileId={uploadedFileId} filename={lastCapture?.filename || 'ファイル'} />
+          </div>
+          {imageBase64 && (
+            <OcrPanel driveFileId={uploadedFileId} imageBase64={imageBase64} />
+          )}
         </div>
       )}
 

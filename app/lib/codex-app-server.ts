@@ -16,6 +16,18 @@ export type CaptureWebhookPayload = {
   sha1: string;
 };
 
+export type OcrPayload = {
+  drive_file_id: string;
+  image_base64: string;
+  mime: string;
+};
+
+export type OcrResult = {
+  confidence: number;
+  extracted_text: string;
+  structured?: { date?: string; amount?: number; vendor?: string; [k: string]: string | number | boolean | undefined };
+};
+
 const CODEX_TIMEOUT_MS = 30 * 1000; // 30 seconds
 
 export async function dispatchToCodex(
@@ -70,10 +82,65 @@ export async function dispatchToCodex(
 
     const result: CodexChatbackResult = await response.json();
     return result;
-  } catch (error) {
+  } catch (error: unknown) {
     if (error instanceof Error && error.name === 'AbortError') {
       throw new Error('Codex App Server request timed out after 30 seconds.');
     }
-    throw error;
+    // Re-throw other errors after ensuring type safety
+    throw error; 
+  }
+}
+
+export async function requestOcr(payload: OcrPayload): Promise<OcrResult> {
+  const endpoint = process.env.OPENAI_APPS_SDK_OCR_ENDPOINT;
+  const apiKey = process.env.OPENAI_APPS_SDK_KEY;
+
+  if (!endpoint || !apiKey) {
+    console.warn(
+      'Codex App Server OCR endpoint or API key not configured. Running in stub mode.'
+    );
+    // Stub mode fallback
+    return new Promise((resolve) => {
+      setTimeout(
+        () =>
+          resolve({
+            confidence: 0.95,
+            extracted_text: 'デモ用OCR結果',
+            structured: {},
+          }),
+        1000
+      );
+    });
+  }
+
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), CODEX_TIMEOUT_MS);
+
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify(payload),
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Codex OCR API error: ${response.status} - ${errorText}`);
+    }
+
+    const result: OcrResult = await response.json();
+    return result;
+  } catch (error: unknown) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error(
+        'Codex App Server OCR request timed out after 30 seconds.'
+      );
+    }
+    throw error; // Re-throw other errors after ensuring type safety
   }
 }

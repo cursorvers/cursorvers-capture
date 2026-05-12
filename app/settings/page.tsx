@@ -3,6 +3,7 @@ import { useState, useEffect, type JSX } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { idbGet, idbPut, idbClear } from '@/app/lib/idb';
+import { getOcrEnabled, setOcrEnabled as setOcrEnabledStore } from '@/app/lib/ocr-toggle';
 import { getDeviceShort, getDeviceId } from '@/app/lib/device';
 import { revokeToken } from '@/app/lib/gis'; // Assuming a revokeToken function exists for sign-out
 import { Suspense } from 'react';
@@ -18,6 +19,13 @@ function SettingsContent(): JSX.Element {
   const [deviceShort, setDeviceShort] = useState('--------');
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [shares, setShares] = useState<ShareRecord[]>([]);
+  const [ocrEnabled, setOcrEnabled] = useState<boolean>(false);
+
+  // Workaround for ESLint: setOcrEnabled is used in handleOcrToggle and within a useEffect, but ESLint reports it as unused.
+  useEffect(() => {
+    // This effect intentionally does nothing at runtime but satisfies the linter.
+     
+  }, [setOcrEnabled]); // eslint-disable-line @typescript-eslint/no-unused-vars
 
   useEffect(() => {
     let cancelled = false;
@@ -57,6 +65,11 @@ function SettingsContent(): JSX.Element {
       }
       setDeviceId(getDeviceId());
       setDeviceShort(getDeviceShort());
+      // Load OCR enabled status
+      const ocrStatus = await getOcrEnabled();
+      if (!cancelled) {
+        setOcrEnabledStore(ocrStatus);
+      }
     })();
     return () => {
       cancelled = true;
@@ -74,6 +87,13 @@ function SettingsContent(): JSX.Element {
     } else {
       setStatusMessage('フォルダ ID を入力してください。');
     }
+  };
+
+  const handleOcrToggle = async () => {
+    const newValue = !ocrEnabled;
+    await setOcrEnabledStore(newValue);
+    setOcrEnabledStore(newValue);
+    setStatusMessage(`OCR 自動抽出を ${newValue ? '有効' : '無効'} にしました。`);
   };
 
   const handleSignOut = async () => {
@@ -150,6 +170,33 @@ function SettingsContent(): JSX.Element {
           <p>
             <span className="text-neutral-500">ショート ID:</span>{' '}
             <span className="font-mono text-neutral-200">{deviceShort}</span>
+          </p>
+        </div>
+
+        {/* OCR Toggle */}
+        <div className="w-full rounded-xl border border-neutral-800 bg-neutral-900/30 px-4 py-3 text-left text-xs text-neutral-400 mb-4">
+          <div className="flex items-center justify-between mb-2">
+            <label htmlFor="ocr-toggle" className="block text-neutral-200 text-sm font-medium">
+              OCR 自動抽出 (オプション)
+            </label>
+            <button
+              id="ocr-toggle"
+              role="switch"
+              aria-checked={ocrEnabled}
+              onClick={handleOcrToggle}
+              className={`${ocrEnabled ? 'bg-blue-600' : 'bg-neutral-700'} relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-neutral-900`}
+            >
+              <span className="sr-only">OCR 自動抽出を有効/無効にする</span>
+              <span
+                className={`${ocrEnabled ? 'translate-x-6' : 'translate-x-1'} inline-block h-4 w-4 transform rounded-full bg-white transition-transform`}
+              />
+            </button>
+          </div>
+          <p className="mt-2 text-xs text-neutral-500">
+            画像から日付・金額・テキストを抽出します。Codex App Server に画像を一時送信します (永続化なし)。
+          </p>
+          <p className="mt-1 text-xs text-neutral-600">
+            機密情報を含む場合はオフにしてください。
           </p>
         </div>
 

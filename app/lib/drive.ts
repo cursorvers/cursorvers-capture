@@ -285,3 +285,25 @@ export async function uploadBlob(
   throw new Error('Upload did not complete.');
 
 }
+
+export async function updateMetadata(
+  driveFileId: string,
+  properties: Record<string, string | undefined>
+): Promise<void> {
+  const response = await driveFetch(
+    `https://www.googleapis.com/drive/v3/files/${driveFileId}?fields=id,appProperties`,
+    {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ appProperties: properties }),
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(
+      `Failed to update Drive file metadata: ${response.statusText}`
+    );
+  }
+}
