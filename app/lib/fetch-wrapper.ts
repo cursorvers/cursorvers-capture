@@ -33,18 +33,74 @@ async function withNetworkRetry(fn: () => Promise<Response>): Promise<Response> 
   }
 }
 
-async function with5xxBackoff(
+// Google's recommended exponential backoff ladder for Drive rate limits:
+// 1s, 2s, 4s, 8s, 16s with ±20% jitter. Five attempts cover most transient
+// throttling without exceeding the user's perceived patience.
+const RETRYABLE_BACKOFF_MS = [1000, 2000, 4000, 8000, 16000];
+
+/**
+ * Inspect a Response body for Google Drive rate-limit / quota error reasons.
+ * Returns true when retrying with backoff is appropriate; false otherwise.
+ * Body is cloned so the caller can still consume the original response.
+ */
+async function is403RateLimited(res: Response): Promise<boolean> {
+  if (res.status !== 403) return false;
+  try {
+    const body = await res.clone().json();
+    const reasons: string[] = [];
+    const errors = body?.error?.errors;
+    if (Array.isArray(errors)) {
+      for (const e of errors) {
+        if (typeof e?.reason === "string") reasons.push(e.reason);
+      }
+    }
+    const top = body?.error?.status;
+    if (typeof top === "string") reasons.push(top);
+    return reasons.some((r) =>
+      [
+        "rateLimitExceeded",
+        "userRateLimitExceeded",
+        "quotaExceeded",
+        "dailyLimitExceeded",
+        "RESOURCE_EXHAUSTED",
+      ].includes(r),
+    );
+  } catch {
+    return false;
+  }
+}
+
+function parseRetryAfterMs(res: Response): number | null {
+  const header = res.headers.get("Retry-After");
+  if (!header) return null;
+  // RFC 7231: seconds (integer) or HTTP-date
+  const seconds = Number(header);
+  if (Number.isFinite(seconds) && seconds >= 0) {
+    return Math.min(seconds * 1000, 60_000); // clamp to 60s
+  }
+  const date = Date.parse(header);
+  if (!Number.isNaN(date)) {
+    return Math.max(0, Math.min(date - Date.now(), 60_000));
+  }
+  return null;
+}
+
+async function withRetryableBackoff(
   fn: () => Promise<Response>,
 ): Promise<Response> {
-  const backoffs = [500, 1500, 4500];
   for (let i = 0; ; i += 1) {
     const res = await withNetworkRetry(fn);
-    if (res.status < 500 || i >= backoffs.length) {
+    const retryable =
+      res.status >= 500 ||
+      res.status === 429 ||
+      (await is403RateLimited(res));
+    if (!retryable || i >= RETRYABLE_BACKOFF_MS.length) {
       return res;
     }
-    const wait = jitteredDelay(backoffs[i]!);
+    const retryAfter = parseRetryAfterMs(res);
+    const wait = retryAfter ?? jitteredDelay(RETRYABLE_BACKOFF_MS[i]!);
     console.warn(
-      `driveFetch: HTTP ${res.status}, retry after ~${wait}ms (attempt ${i + 1}/${backoffs.length})`,
+      `driveFetch: HTTP ${res.status} (retryable), backoff ~${wait}ms (attempt ${i + 1}/${RETRYABLE_BACKOFF_MS.length})`,
     );
     await sleep(wait);
   }
@@ -74,7 +130,7 @@ export async function driveFetch(
       throw new Error("No valid access token");
     }
 
-    const response = await with5xxBackoff(() =>
+    const response = await withRetryableBackoff(() =>
       fetchWithToken(url, init, token),
     );
 
