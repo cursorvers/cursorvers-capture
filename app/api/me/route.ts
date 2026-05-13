@@ -1,28 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { sign, verify } from '../../lib/server-cookie';
 import { cookies } from 'next/headers';
+import { getTierForEmail } from '../../lib/server-tier';
 
 const COOKIE_NAME = 'gdrive_email';
 const COOKIE_MAX_AGE = 60 * 60 * 24; // 1 day
 
-const INVITE_ALLOWLIST = process.env.INVITE_ALLOWLIST?.split(',').map(e => e.trim()) || [];
-const PRO_USERS = process.env.PRO_USERS?.split(',').map(e => e.trim()) || [];
 
 async function getTierAndEmail(emailFromCookie: string | null): Promise<{ tier: 'free' | 'pro' | 'unknown', email: string | null }> {
   if (!emailFromCookie) {
     return { tier: 'unknown', email: null };
   }
 
-  // Check if user is in INVITE_ALLOWLIST (if configured)
-  if (INVITE_ALLOWLIST.length > 0 && !INVITE_ALLOWLIST.includes(emailFromCookie)) {
-    return { tier: 'unknown', email: emailFromCookie }; // Email known, but not invited
-  }
-
-  if (PRO_USERS.includes(emailFromCookie)) {
-    return { tier: 'pro', email: emailFromCookie };
-  } else {
-    return { tier: 'free', email: emailFromCookie };
-  }
+  const tier = getTierForEmail(emailFromCookie);
+  return { tier, email: emailFromCookie };
 }
 
 export async function GET() {

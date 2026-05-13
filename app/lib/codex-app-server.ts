@@ -39,6 +39,11 @@ export type OcrResult = {
   structured: Record<string, unknown>;
 };
 
+export type AdvisoryHistoryMessage = {
+  role: "user" | "assistant";
+  content: string;
+};
+
 const CODEX_TIMEOUT_MS = 30 * 1000; // 30 seconds
 
 export async function dispatchToCodex(
@@ -207,3 +212,55 @@ export async function requestOcr(payload: OcrPayload): Promise<OcrResult> {
     throw error; // Re-throw other errors after ensuring type safety
   }
 }
+
+export async function requestAdvisory(payload: {
+  message: string;
+  history: AdvisoryHistoryMessage[];
+}): Promise<{ reply: string }> {
+  const endpoint = process.env.OPENAI_APPS_SDK_ADVISORY_ENDPOINT;
+  const apiKey = process.env.OPENAI_APPS_SDK_KEY;
+
+  if (!endpoint || !apiKey) {
+    console.warn(
+      "Codex App Server advisory endpoint or API key not configured. Running in stub mode.",
+    );
+    const stubReply = `Cursorvers Advisory stub: ${payload.message} を受け取りました。実際のサービスは Phase B で接続予定`;
+    return Promise.resolve({ reply: stubReply });
+  }
+
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), CODEX_TIMEOUT_MS);
+
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify(payload),
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Codex Advisory API error: ${response.status} - ${errorText}`);
+    }
+
+    const result = (await response.json()) as { reply?: string };
+    const reply =
+      typeof result.reply === "string"
+        ? result.reply
+        : JSON.stringify(result);
+    return { reply };
+  } catch (error: unknown) {
+    if (error instanceof Error && error.name === "AbortError") {
+      throw new Error(
+        "Codex App Server advisory request timed out after 30 seconds.",
+      );
+    }
+    throw error;
+  }
+}
+

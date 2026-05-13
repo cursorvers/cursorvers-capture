@@ -382,6 +382,14 @@ function HomeContent(): JSX.Element {
           </div>
         </details>
       </div>
+      <nav className="mt-6 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-xs text-orange-400">
+        <a href="/insights" className="underline hover:text-orange-300">
+          📊 振り返り
+        </a>
+        <a href="/advisory" className="underline hover:text-orange-300">
+          💬 Advisory
+        </a>
+      </nav>
       <p className="mt-4 text-xs text-neutral-500">v0.3 — S3 camera</p>
       <div
         aria-live="polite"
