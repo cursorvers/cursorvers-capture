@@ -82,15 +82,22 @@ Notion で「allowlist 対象」プロパティの advisor を CSV export → lo
 ```
 入力: CSV path (`--csv ./advisors-2026-05-13.csv`、列: name,email,status,scope)
 処理:
-  1. status=="Active" or "Invited" の行を抽出
-  2. scope=="capture" or "all" の行を抽出
-  3. 残った email 列を sort + dedupe → comma-separated string `INVITE_ALLOWLIST`
-  4. `--dry-run` flag があれば diff 出力のみ
-  5. `--apply` flag で:
-     a. Vercel CLI: `vercel env rm INVITE_ALLOWLIST production --yes` → `echo $LIST | vercel env add INVITE_ALLOWLIST production`
-     b. GCP CLI: `gcloud iam service-accounts ...` (Test users 同期は API ではなく Console UI に追従指示を出力)
-  6. CSV を `unlink` (PII 削除)
-出力: 各 step の diff (added/removed email count)、CSV delete 確認
+  1. CSV を読み込んだ直後に `process.on("exit"|"SIGINT"|"SIGTERM", cleanup)` を仕掛け、
+     終了経路に関わらず CSV ファイルを `fs.unlinkSync` で削除する (try/finally + signal trap、defense-in-depth)
+  2. status=="Active" or "Invited" の行を抽出
+  3. scope=="capture" or "all" の行を抽出
+  4. email を小文字化 + trim + sort + dedupe → comma-separated string `INVITE_ALLOWLIST`
+  5. `--dry-run` flag があれば diff 出力のみ
+  6. `--apply` flag で:
+     a. **Vercel atomic update を試みる** (PATCH /v9/projects/{id}/env/{envId})。CLI が
+        2026-05 時点で atomic update を直接サポートしない場合は、
+        b1) deploy が走っていない夜間 (JST 02:00-06:00) を user に再確認、
+        b2) `vercel env rm INVITE_ALLOWLIST production --yes` → 即時 `vercel env add` 連続実行、
+        b3) 完了直後に `vercel --prod` を deploy し直して env を pin
+        (この期間 ~10 秒、env 欠落 window で同時 access した user は access_denied)
+     b. GCP: Console UI 自動化なし。stdout に未同期 email リストを出力し、user が手動投入
+  7. cleanup: CSV を `unlink` (`process.exit` 経路でも実行されるよう trap 済)
+出力: 各 step の diff (added/removed email count)、CSV delete 確認、env update window の実時間 (ms)
 ```
 
 ### 4.2 Notion CSV export 手順
@@ -119,12 +126,17 @@ Notion で「allowlist 対象」プロパティの advisor を CSV export → lo
 
 ---
 
-## 6. リスク / 既知の問題
+## 6. リスク / 既知の問題 (critic 合議反映)
 
-- **Vercel CLI の env rm + add は短時間でも env 欠落 window が発生**。production user が同時刻にログインすると `INVITE_ALLOWLIST` 空で全員拒否。対策: deploy time でなく中夜帯に実行 / Vercel の env update API があれば atomic (要確認)。
-- **GCP Console UI 自動化なし**: gcloud には OAuth consent screen の Test users 編集 API がない (2026-05 時点)。Console 操作は手動が必須。Admin SDK でカバーするには workspace 配下の domain restriction が必要。
-- **CSV PII 残留**: script 実行後の `unlink` 失敗時にローカルに残る → trap で finally cleanup を保証。
-- **Notion API rate limit**: 案 A/B 昇格時に考慮 (3 req/sec)。
+- **Vercel env 欠落 window** (★ critic must-fix): `env rm` → `env add` 間の数秒間、`INVITE_ALLOWLIST` が空欄になる時間帯が発生する。production user が同時刻にログインすると全員 `access_denied`。
+  - **第 1 対策 (atomic 化)**: Vercel REST API `PATCH /v9/projects/{id}/env/{envId}` (atomic) が使えるか先に検証 (CLI でなく `fetch` 直叩き、`VERCEL_API_TOKEN` 必要)
+  - **第 2 対策 (時間隔離)**: atomic が使えない場合は JST 02:00-06:00 (advisor 不在帯) に実行
+  - **第 3 対策 (deploy pin)**: env update 直後に `vercel --prod` を打ち、新 env を確実に pin する (env-only 変更だと cold-cached function が古い env を使う恐れ)
+- **GCP Console UI 自動化なし**: gcloud には OAuth consent screen の Test users 編集 API がない (2026-05 時点)。Console 操作は手動が必須。Admin SDK でカバーするには workspace 配下の domain restriction が必要
+- **CSV PII 残留** (★ critic must-fix): `unlink` の単発呼び出しでは crash 時にローカルに残る。**`process.on("exit"|"SIGINT"|"SIGTERM", cleanup)` 必須**、try/finally と signal trap の二重保証
+- **email case-sensitivity の落とし穴**: PWA `middleware.ts` が `.toLowerCase()` をかけている前提だが、Vercel env 投入時も小文字化して defense-in-depth
+- **Notion API rate limit**: 案 A/B 昇格時に考慮 (3 req/sec)
+- **Notion 側 status 値の表記揺れ**: "Active" vs "active" vs "アクティブ" 等を吸収する正規化レイヤを script に入れる (`status.trim().toLowerCase()` ベース)
 
 ---
 

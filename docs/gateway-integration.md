@@ -46,9 +46,38 @@ if (!endpoint || !apiKey) {
 - 一部だけ投入すると、未投入 endpoint だけ stub mode で動く mixed-mode が成立する (Phase B-2 → B-3 → B-4 の段階導入)
 - `OPENAI_APPS_SDK_KEY` だけ投入で endpoint 未投入は意味なし (key だけでは stub に落ちる)
 
+### Server-only 検証手順 (env 投入後、必ず実施)
+
+`NEXT_PUBLIC_` prefix を誤って付けると client bundle に焼かれ、key 漏れの重大事故になる。
+投入後の確認:
+
+```bash
+# 1. 投入直後の Vercel deploy が走った後、bundle dump を確認
+vercel --prod --no-clipboard >/dev/null
+curl -s "https://<your-prod-url>/_next/static/chunks/" 2>&1 | grep -E 'OPENAI_APPS_SDK_|gateway\.cursorvers\.com'
+# 期待: 何も出ない (server-only env が client bundle に焼かれていない)
+
+# 2. ブラウザの DevTools Application → Source で同様にチェック
+#    `OPENAI_APPS_SDK_KEY` の文字列が JavaScript ソース内に出現しないこと
+
+# 3. Vercel Dashboard の env 設定で、各 OPENAI_APPS_SDK_* が:
+#    - "Production" スコープのみチェック (Preview/Development はオフ推奨)
+#    - "Sensitive" にマーク (UI 上で値が hidden 表示)
+```
+
+万一 `NEXT_PUBLIC_` prefix で投入したことが判明したら:
+1. **直ちに Vercel から env を rm** (rollback で stub mode に戻す)
+2. Gateway 側で当該 Bearer key を rotate (旧 key を `GATEWAY_AUTH_KEYS` から削除)
+3. 新 key を **prefix なし** で再投入
+
 ---
 
-## 3. 既知の Schema 不整合 (Phase B-2 までに解消)
+## 3. 🚨 既知の Schema 不整合 (Phase B-2 着手前の必須 blocker)
+
+> **重要**: 本不整合を解消しないまま `OPENAI_APPS_SDK_*` env を本番投入すると、
+> 撮影直後の chatback が runtime error (TypeError or schema mismatch) で落ち、
+> user 体験を完全に壊す。**Phase B-2 着手時の Spec Master Q&A で a/b/c のいずれかを
+> 確定するまで env 投入は禁止**。
 
 Gateway scaffold (`a37ef62`) と PWA 側の expected response が **完全一致していない**:
 

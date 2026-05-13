@@ -53,7 +53,11 @@ test.describe("Smoke (B1 post-deploy expansion 2026-05-13)", () => {
     page.on("pageerror", (error) => {
       errors.push(error.message);
     });
-    await page.goto("/?folder=b1-smoke-folder");
+    // unique per run so concurrent / repeated CI runs do not collide on a single
+    // synthetic folder id, and so the test never accidentally re-uses a real
+    // folder id from a developer's clipboard.
+    const folderId = `b1-smoke-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    await page.goto(`/?folder=${folderId}`);
     await expect(
       page.getByRole("heading", { name: "Cursorvers Capture" }),
     ).toBeVisible();

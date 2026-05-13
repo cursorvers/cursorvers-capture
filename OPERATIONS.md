@@ -53,7 +53,21 @@
 
 ---
 
-## 3. Checkpoint / Rollback
+## 3. 失敗時の 5 分以内復旧 (緊急 fallback)
+
+| 症状 | 5 分で実行する 1 アクション | 影響 |
+|---|---|---|
+| 全 user が `access_denied` で入れない | Vercel Dashboard → 環境変数 → `INVITE_ALLOWLIST` 値が空でないか確認、空なら直前 deploy へ rollback | サービス回復 ~2 min |
+| 配布対象 advisor 1 名だけ入れない | `INVITE_ALLOWLIST` と GCP OAuth Test users **両方** に email が入っているかチェック (片側だけだと拒否) | 個別解決 ~3 min |
+| `redirect_uri_mismatch` | GCP Console → Credentials → OAuth Client → Authorized JavaScript origins に現 Vercel URL (or custom domain) を追加 | 再 deploy 不要、即時反映 |
+| Vercel build fail (deploy 直後) | `vercel rollback` で直前 deploy に戻す → fail 原因を local `pnpm build` で再現 | サービス断ゼロ |
+| Tier B (OCR/audio/advisory) でエラー | `OPENAI_APPS_SDK_*` env を Vercel から削除 → 自動 stub fallback (memo `docs/gateway-integration.md` §6) | サービス断ゼロ |
+
+緊急時は **これらを最初に試す**。原因究明より先に user を元の動作に戻す。
+
+## 4. Checkpoint / Rollback (詳細表)
+
+§3 で復旧しなかった場合、または事前に把握しておく非緊急の判断材料:
 
 | 症状 | 即時対処 | rollback |
 |---|---|---|
@@ -68,9 +82,17 @@
 
 ---
 
-## 4. INVITE_ALLOWLIST 投入候補 (2026-05-13 時点)
+## 5. INVITE_ALLOWLIST 投入候補 (2026-05-13 時点)
 
 memory `cursorvers_client_roster.md` / `cursorvers_kozai_first_advisory.md` / `cursorvers_yuinozomi_hasegawa_localllm.md` を反映:
+
+### 投入時のルール
+
+- **case 正規化**: `middleware.ts` 側が server-side で `.toLowerCase()` をかけている前提だが、Vercel env 投入時も全 email を **小文字** で揃える (`info@example.com`、`info@Example.COM` でない)。実装側の normalize に依存しないよう defense-in-depth
+- **trim**: 末尾 / 先頭の空白なし。Vercel Dashboard で copy-paste 時に半角スペースが入りやすい
+- **重複排除**: 投入前に sort + uniq、目視で重複を取る
+- **Gmail dot-insensitive 注意**: `foo.bar@gmail.com` と `foobar@gmail.com` は Gmail 上は同一アカウントだが、INVITE_ALLOWLIST には advisor が**実際にログインに使う表記** をそのまま入れる (両表記を投入してもエラーにはならない)
+- **100 user 上限警告**: GCP OAuth Testing mode の Test users は **100 件上限**。50 件を超えた段階で next-action として「Production 申請 (OAuth verification) or 50 件以下に絞り込み」を判断する
 
 | # | 氏名 | 状態 | 投入判断 | 備考 |
 |---|---|---|---|---|
@@ -83,30 +105,33 @@ memory `cursorvers_client_roster.md` / `cursorvers_kozai_first_advisory.md` / `c
 
 ---
 
-## 5. 後回し / 別 run 案件
+## 6. 後回し / 別 run 案件
 
 合議結果に基づき、本 critical path 外として明示:
 
 - **A5**: Vercel KV 有効化 — fallback で十分動作、後で必要時 enable
-- **B4-B6**: Notion 同期 / custom domain / gateway 切替 stub — 検証フェーズ完了後で十分
+- **B4-B6 実装**: Notion 同期 (案 C MVP) / custom domain (capture.cursorvers.com) / gateway 接続 — 検証フェーズ完了後の任意着手。doc は完納済 ([docs/notion-allowlist-sync.md](docs/notion-allowlist-sync.md) / [docs/custom-domain-setup.md](docs/custom-domain-setup.md) / [docs/gateway-integration.md](docs/gateway-integration.md))
+- **Gateway schema 不整合解消** (重要、Phase B-2 着手前 gate): PWA expected schema (`CodexChatbackResult` 等) と gateway scaffold actual schema (`{text, usage, warnings}`) の不整合を 案 a (gateway 側合わせ) / 案 b (PWA adapter) / 案 c (unified schema) のいずれかで確定する必要あり。[docs/gateway-integration.md §3](docs/gateway-integration.md) 参照
 - **C 全体 (cursorvers-codex-gateway Phase B-2+)**: 別 FUGUE run、実 user フィードバック取得後の方が要件が固まる
 - **OAuth verification 申請**: Testing mode 100 user 上限まで余裕、超過時に再評価
 
 ---
 
-## 6. 検証フェーズ Exit 条件
+## 7. 検証フェーズ Exit 条件
 
 以下を全て満たした段階で「invite-only 検証フェーズ完了」とし、次 phase (Phase C 本格化 / 公開リリース判断 / scale-up) へ遷移する:
 
-- [ ] 香西氏が 1 回以上 撮影→upload を完遂
-- [ ] 香西氏からフィードバック (定性) を 1 件以上 受領
-- [ ] dogfood で 1 週間以上 daily 撮影 (`流入があるか` 確認)
-- [ ] OAuth Testing mode 内のエラー率 < 5% (smoke test 含む)
-- [ ] 長谷川氏 (5/19 面談後) の判断: 配布 or 非配布、いずれかに確定
+- [ ] 香西氏が 1 回以上 撮影→upload を完遂 (**deadline: 2026-06-05**、メール A 送信から 2 週間)
+- [ ] 香西氏からフィードバック (定性) を 1 件以上 受領 (**deadline: 2026-06-12**、初回 upload から 1 週間後)
+- [ ] dogfood で 1 週間以上 daily 撮影 (deploy 完了から起算)
+- [ ] OAuth Testing mode 内のエラー率 < 5% (smoke test 含む、deploy 完了から 1 週間計測)
+- [ ] 長谷川氏 (5/19 面談後) の判断: 配布 or 非配布、いずれかに確定 (**deadline: 2026-06-02**、面談から 2 週間)
+
+**deadline 超過時の扱い**: Exit 条件が **永遠未達成** にならないよう、deadline を過ぎた未完項目は「配布見送り / 非配布」として確定 Close する。永続検証は user 時間を蝕む。判断材料が不足する場合は「データ不足のため判断保留 → 次サイクル (Q3) 持ち越し」も可。
 
 ---
 
-## 7. 関連 doc / memory
+## 8. 関連 doc / memory
 
 | ファイル | 役割 |
 |---|---|
@@ -125,9 +150,10 @@ memory `cursorvers_client_roster.md` / `cursorvers_kozai_first_advisory.md` / `c
 
 ---
 
-## 8. 更新ログ
+## 9. 更新ログ
 
 | Date | 変更 | Source |
 |---|---|---|
 | 2026-05-13 | 新規作成。Critical Path / Checkpoint / Exit 条件を SSOT 化 | FUGUE multi-agent vote (B3 推奨、2/3 票) |
 | 2026-05-13 | 配布メール A/B/C を polish v2 化 (Codex App Server → 「別サーバー」、stub mode → 「現時点では未稼働」、allowlist → 「限定 URL」表記等) | FUGUE multi-agent vote (B2、続編) |
+| 2026-05-13 | critic 合議 (GLM + OpenCode CONDITIONAL_APPROVE) を反映: §3 緊急復旧 5 分手順 / §6 schema 不整合 blocker / §7 Exit 条件 deadline (5/19→6/2 等) / §5 case 正規化 + 100 user 上限注記 | FUGUE multi-agent critic vote (must-fix 採択) |
