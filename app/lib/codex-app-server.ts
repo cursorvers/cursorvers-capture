@@ -1,19 +1,30 @@
+export type AudioPayload = {
+  drive_file_id: string;
+  audio_base64: string;
+  mime: string;
+  duration_ms: number;
+};
 
-
-export type CodexChatbackResult = {
-  chatback_text: string;
-  suggested_tags?: string[];
-  updated_metadata?: object;
+export type AudioResult = {
+  transcript: string;
+  cleaned_text: string;
+  summary?: string;
 };
 
 export type CaptureWebhookPayload = {
-  chatgpt_user_id?: string;
   drive_file_id: string;
   filename: string;
-  mime: 'image/jpeg';
+  shot_at: string;
+  mime: string;
   size: number;
-  shot_at: number;
   sha1: string;
+  chatgpt_user_id: string;
+};
+
+export type CodexChatbackResult = {
+  chatback_text: string;
+  suggested_tags: string[];
+  updated_metadata: Record<string, string>;
 };
 
 export type OcrPayload = {
@@ -25,7 +36,7 @@ export type OcrPayload = {
 export type OcrResult = {
   confidence: number;
   extracted_text: string;
-  structured?: { date?: string; amount?: number; vendor?: string; [k: string]: string | number | boolean | undefined };
+  structured: Record<string, unknown>;
 };
 
 const CODEX_TIMEOUT_MS = 30 * 1000; // 30 seconds
@@ -88,6 +99,58 @@ export async function dispatchToCodex(
     }
     // Re-throw other errors after ensuring type safety
     throw error; 
+  }
+}
+
+export async function requestAudioTranscript(
+  payload: AudioPayload
+): Promise<AudioResult> {
+  const endpoint = process.env.OPENAI_APPS_SDK_AUDIO_ENDPOINT;
+  const apiKey = process.env.OPENAI_APPS_SDK_KEY;
+
+  if (!endpoint || !apiKey) {
+    console.warn('Codex App Server audio endpoint or API key not configured. Running in stub mode.');
+    // Stub mode fallback
+    return new Promise((resolve) => {
+      setTimeout(
+        () =>
+          resolve({
+            transcript: '音声メモ stub',
+            cleaned_text: '撮影内容についての説明',
+            summary: '',
+          }),
+        1500, // 1.5 seconds as per spec
+      );
+    });
+  }
+
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), CODEX_TIMEOUT_MS);
+
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify(payload),
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Codex Audio API error: ${response.status} - ${errorText}`);
+    }
+
+    const result: AudioResult = await response.json();
+    return result;
+  } catch (error: unknown) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error('Codex App Server audio request timed out after 30 seconds.');
+    }
+    throw error;
   }
 }
 

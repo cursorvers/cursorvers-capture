@@ -12,11 +12,12 @@
     "e2e:install": "playwright install --with-deps"
   },
   "dependencies": {
+    "@vercel/kv": "^2.0.0",
     "browser-image-compression": "^2.0.2",
     "next": "14.2.35",
+    "next-auth": "^4.24.14",
     "react": "^18",
-    "react-dom": "^18",
-    "@vercel/kv": "^2.0.0"
+    "react-dom": "^18"
   },
   "devDependencies": {
     "@playwright/test": "^1.60.0",
