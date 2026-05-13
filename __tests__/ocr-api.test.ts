@@ -1,9 +1,9 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { POST } from '@/app/api/ocr/route';
 import { getGdriveEmail } from '@/app/lib/server-cookie';
 import { requestOcr, OcrResult } from '@/app/lib/codex-app-server';
-import { kvGet, kvSet, kvDelete } from '@/app/lib/kv';
+import { kvSetEncrypted } from '@/app/lib/kv';
 import { Buffer } from 'buffer';
 
 
@@ -17,8 +17,8 @@ vi.mock('@/app/lib/codex-app-server', () => ({
 }));
 
 vi.mock('@/app/lib/kv', () => ({
-  kvSet: vi.fn(),
-  kvGet: vi.fn(),
+  kvSetEncrypted: vi.fn(),
+  kvGetEncrypted: vi.fn(),
   kvDelete: vi.fn(),
 }));
 
@@ -26,7 +26,7 @@ describe('OCR API Route', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(getGdriveEmail).mockResolvedValue('test@example.com');
-    vi.mocked(kvSet).mockResolvedValue(undefined);
+    vi.mocked(kvSetEncrypted).mockResolvedValue(undefined);
   });
 
   it('should return 401 if unauthorized', async () => {
@@ -72,7 +72,7 @@ describe('OCR API Route', () => {
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toEqual(stubOcrResult);
     expect(requestOcr).toHaveBeenCalledWith(payload);
-    expect(kvSet).toHaveBeenCalledWith(`ocr:${payload.drive_file_id}`, stubOcrResult, 3600);
+    expect(kvSetEncrypted).toHaveBeenCalledWith(`ocr:${payload.drive_file_id}`, stubOcrResult, 3600);
   });
 
   it('should return 413 if payload (base64) is too large', async () => {
@@ -93,6 +93,6 @@ describe('OCR API Route', () => {
     expect(res.status).toBe(413);
     await expect(res.json()).resolves.toEqual({ error: 'Payload too large' });
     expect(requestOcr).not.toHaveBeenCalled();
-    expect(kvSet).not.toHaveBeenCalled();
+    expect(kvSetEncrypted).not.toHaveBeenCalled();
   });
 });

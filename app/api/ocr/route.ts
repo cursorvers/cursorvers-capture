@@ -1,15 +1,15 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getGdriveEmail } from '../../lib/server-cookie';
-import { kvSet } from '../../lib/kv';
-import { OcrPayload, OcrResult, requestOcr } from '../../lib/codex-app-server';
+import { NextRequest, NextResponse } from "next/server";
+import { getGdriveEmail } from "../../lib/server-cookie";
+import { kvSetEncrypted } from "../../lib/kv";
+import { OcrPayload, OcrResult, requestOcr } from "../../lib/codex-app-server";
 
-const MAX_PAYLOAD_SIZE = 4 * 1024 * 1024; // 4MB
+const MAX_PAYLOAD_SIZE = 4 * 1024 * 1024;
 
 export async function POST(req: NextRequest) {
   const gdriveEmail = await getGdriveEmail();
 
   if (!gdriveEmail) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   try {
@@ -17,26 +17,25 @@ export async function POST(req: NextRequest) {
     const { drive_file_id, image_base64, mime } = payload;
 
     if (!drive_file_id || !image_base64 || !mime) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+      return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
-    // Check payload size
-    const base64Size = Buffer.byteLength(image_base64, 'base64');
+    const base64Size = Buffer.byteLength(image_base64, "base64");
     if (base64Size > MAX_PAYLOAD_SIZE) {
-      return NextResponse.json({ error: 'Payload too large' }, { status: 413 });
+      return NextResponse.json({ error: "Payload too large" }, { status: 413 });
     }
 
     const ocrResult: OcrResult = await requestOcr(payload);
 
-    // Save result to KV
-    await kvSet(`ocr:${drive_file_id}`, ocrResult, 3600); // Store for 1 hour
+    await kvSetEncrypted(`ocr:${drive_file_id}`, ocrResult, 3600);
 
     return NextResponse.json(ocrResult, { status: 200 });
-  } catch (error) {
-    console.error('OCR API error:', error);
+  } catch (error: unknown) {
+    console.error("OCR API error:", error);
+    const details = error instanceof Error ? error.message : "Unknown error";
     return NextResponse.json(
-      { error: 'Internal Server Error', details: (error as Error).message },
-      { status: 500 }
+      { error: "Internal Server Error", details },
+      { status: 500 },
     );
   }
 }

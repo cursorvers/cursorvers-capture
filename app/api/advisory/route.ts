@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getGdriveEmail } from "@/app/lib/server-cookie";
 import { getTierForEmail } from "@/app/lib/server-tier";
 import { requestAdvisory, type AdvisoryHistoryMessage } from "@/app/lib/codex-app-server";
-import { kvSet } from "@/app/lib/kv";
+import { kvSetEncrypted } from "@/app/lib/kv";
 
 const ADVISORY_KV_TTL_SEC = 60 * 60 * 24 * 7;
 
@@ -61,7 +61,7 @@ export async function POST(req: NextRequest) {
   const { reply } = await requestAdvisory({ message, history });
 
   const key = `advisory:${encodeURIComponent(email)}:${Date.now()}`;
-  await kvSet(
+  await kvSetEncrypted(
     key,
     { message, reply, at: new Date().toISOString() },
     ADVISORY_KV_TTL_SEC,

@@ -1,16 +1,18 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import {
-  getCurrentToken,
-  signIn,
-  revokeToken,
-} from "@/app/lib/gis";
+import { getCurrentToken, signIn } from "@/app/lib/gis";
+import { useTier } from "@/app/lib/tier";
 
-export function SignInButton(): JSX.Element {
+type SignInButtonProps = {
+  minimal?: boolean;
+};
+
+export function SignInButton({ minimal = false }: SignInButtonProps): JSX.Element {
   const [signedIn, setSignedIn] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { email } = useTier();
 
   useEffect(() => {
     let cancelled = false;
@@ -40,18 +42,27 @@ export function SignInButton(): JSX.Element {
     }
   }
 
-  async function onSignOut(): Promise<void> {
-    setError(null);
-    setBusy(true);
-    try {
-      await revokeToken();
-      setSignedIn(false);
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      setError(msg);
-    } finally {
-      setBusy(false);
-    }
+  if (minimal) {
+    return (
+      <div className="flex w-full flex-col gap-2">
+        {!signedIn ? (
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => void onSignIn()}
+            className="w-full rounded-xl bg-neutral-800 px-4 py-2 text-sm font-medium hover:bg-neutral-700 disabled:opacity-60"
+            data-testid="signin-button-google"
+          >
+            Google でサインイン
+          </button>
+        ) : (
+          <p className="text-center text-xs text-neutral-400" data-testid="signin-minimal-status">
+            ✓ {email ?? "サインイン済み"}
+          </p>
+        )}
+        {error ? <p className="text-center text-xs text-red-400">{error}</p> : null}
+      </div>
+    );
   }
 
   return (
@@ -69,19 +80,9 @@ export function SignInButton(): JSX.Element {
       ) : (
         <div className="flex w-full flex-col items-center gap-2 rounded-xl border border-neutral-800 bg-neutral-900/40 px-4 py-3">
           <span className="text-sm font-medium">✅ Signed in</span>
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => void onSignOut()}
-            className="text-xs text-neutral-400 underline-offset-2 hover:text-neutral-200 hover:underline disabled:opacity-50"
-          >
-            Sign out
-          </button>
         </div>
       )}
-      {error ? (
-        <p className="text-center text-xs text-red-400">{error}</p>
-      ) : null}
+      {error ? <p className="text-center text-xs text-red-400">{error}</p> : null}
     </div>
   );
 }

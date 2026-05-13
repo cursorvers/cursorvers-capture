@@ -4,7 +4,7 @@ import { POST } from "@/app/api/advisory/route";
 import { getGdriveEmail } from "@/app/lib/server-cookie";
 import { getTierForEmail } from "@/app/lib/server-tier";
 import { requestAdvisory } from "@/app/lib/codex-app-server";
-import { kvSet } from "@/app/lib/kv";
+import { kvSetEncrypted } from "@/app/lib/kv";
 
 vi.mock("@/app/lib/server-cookie", () => ({
   getGdriveEmail: vi.fn(),
@@ -19,14 +19,14 @@ vi.mock("@/app/lib/codex-app-server", () => ({
 }));
 
 vi.mock("@/app/lib/kv", () => ({
-  kvSet: vi.fn(),
+  kvSetEncrypted: vi.fn(),
 }));
 
 describe("Advisory API Route", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(getGdriveEmail).mockResolvedValue("test@example.com");
-    vi.mocked(kvSet).mockResolvedValue(undefined);
+    vi.mocked(kvSetEncrypted).mockResolvedValue(undefined);
   });
 
   it("returns 403 when tier is not pro", async () => {
@@ -42,7 +42,7 @@ describe("Advisory API Route", () => {
     expect(res.status).toBe(403);
     await expect(res.json()).resolves.toEqual({ error: "Forbidden" });
     expect(requestAdvisory).not.toHaveBeenCalled();
-    expect(kvSet).not.toHaveBeenCalled();
+    expect(kvSetEncrypted).not.toHaveBeenCalled();
   });
 
   it("returns stub reply for pro user and stores kvSet", async () => {
@@ -70,8 +70,8 @@ describe("Advisory API Route", () => {
       history: [],
     });
 
-    expect(kvSet).toHaveBeenCalledTimes(1);
-    const [key, payload, ttl] = vi.mocked(kvSet).mock.calls[0];
+    expect(kvSetEncrypted).toHaveBeenCalledTimes(1);
+    const [key, payload, ttl] = vi.mocked(kvSetEncrypted).mock.calls[0];
     expect(key).toMatch(
       /^advisory:test%40example\.com:\d+$/,
     );

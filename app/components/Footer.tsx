@@ -1,16 +1,16 @@
-import Link from 'next/link';
+import Link from "next/link";
 
 export function Footer() {
   return (
-    <footer className="w-full p-4 bg-gray-800 text-gray-400 text-center text-sm mt-8">
-      <p className="mb-2">
-        © 2026 Cursorvers Inc. |
-        <Link href="/privacy" className="underline hover:text-white ml-1">
-          プライバシー
-        </Link>
-        |
-        <Link href="/terms" className="underline hover:text-white ml-1">
-          利用規約
+    <footer className="mt-auto w-full px-4 py-3 text-center">
+      <p className="text-[11px] text-neutral-500">
+        初月 experimental ·{" "}
+        <Link href="/privacy" className="underline hover:text-neutral-300">
+          Privacy
+        </Link>{" "}
+        ·{" "}
+        <Link href="/terms" className="underline hover:text-neutral-300">
+          Terms
         </Link>
       </p>
     </footer>

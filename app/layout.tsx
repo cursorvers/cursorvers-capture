@@ -1,15 +1,14 @@
 import type { Metadata, Viewport } from "next";
 
-
 export const metadata: Metadata = {
-  title: "Cursorvers Receipt — レシート共有 PWA",
+  title: "Cursorvers Capture",
   description:
-    "Cursorvers 顧問先専用、税理士と Google Drive でレシートをシェア",
+    "モバイルでレシートを撮影し、Google Drive のフォルダへ保存する Cursorvers の実験的 PWA。",
   manifest: "/manifest.webmanifest",
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0a0a0a",
+  themeColor: "#0a1a4a",
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
@@ -26,7 +25,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ja">
-      <body className="antialiased min-h-screen flex flex-col">
+      <body className="flex min-h-screen flex-col bg-navy-900 antialiased text-gray-100">
         <SWRegistry />
         <Header />
         <main className="flex-grow">{children}</main>

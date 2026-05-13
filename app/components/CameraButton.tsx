@@ -21,6 +21,8 @@ const COUNT_TICK_MS = 100;
 type CameraButtonProps = {
   deviceShort: string;
   audioNoteEnabled?: boolean;
+  hidePreview?: boolean;
+  hero?: boolean;
   onCaptured: (
     blob: Blob,
     filename: string,
@@ -32,6 +34,8 @@ type CameraButtonProps = {
 export function CameraButton({
   deviceShort,
   audioNoteEnabled = false,
+  hidePreview = false,
+  hero = false,
   onCaptured,
 }: CameraButtonProps): JSX.Element {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -268,6 +272,7 @@ export function CameraButton({
         <button
           type="button"
           onClick={handleButtonClick}
+          data-testid="camera-capture-hero"
           onTouchStart={() => onPointerHoldStart()}
           onTouchEnd={() => onPointerHoldEnd()}
           onTouchCancel={() => onPointerHoldEnd()}
@@ -280,12 +285,16 @@ export function CameraButton({
               clearHoldTimer();
             }
           }}
-          className="w-full rounded-xl bg-neutral-800 px-4 py-3 text-sm font-medium hover:bg-neutral-700"
+          className={
+            hero
+              ? "w-full rounded-2xl bg-orange-500 px-6 py-5 text-lg font-semibold text-white shadow-lg hover:bg-orange-600"
+              : "w-full rounded-xl bg-neutral-800 px-4 py-3 text-sm font-medium hover:bg-neutral-700"
+          }
         >
-          📷 撮影 (S3)
+          📷 撮影する
         </button>
       </div>
-      {previewUrl ? (
+      {!hidePreview && previewUrl ? (
         <div className="flex flex-col items-center gap-2 rounded-xl border border-neutral-800 bg-neutral-900/30 px-3 py-3">
           {/* eslint-disable-next-line @next/next/no-img-element -- blob preview */}
           <img

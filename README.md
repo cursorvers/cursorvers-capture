@@ -1,64 +1,68 @@
-# Gdrive Uploader
+# Cursorvers Capture
 
-スマートフォンで撮影した写真を、指定した Google Drive フォルダへ自動アップロードする PWA の土台（S5: polish + e2e + share-link doc）。
+スマートフォンでレシートを撮影し、**Google Drive** のフォルダへ保存する **PWA**（実験的・招待制）。旧称 Gdrive Uploader から UI を **Apple 風に簡素化**した構成です。
 
-## 概要
+## デプロイ手順（Vercel）
 
-このGdrive Uploaderは、スマートフォンで撮影した写真を指定のGoogle Driveフォルダに直接アップロードするためのプログレッシブウェブアプリ（PWA）です。シンプルなUIで、素早く写真のアップロードを完了できます。オフラインからの復帰時アップロード、トークンのサイレントリフレッシュに対応しています。
+1. リポジトリを Vercel に接続する。
+2. **Build**: `pnpm build` / **Install**: `pnpm install`
+3. 環境変数（Project Settings → Environment Variables）を設定する（後述）。
+4. 本番 URL を GCP OAuth の「承認済みの JavaScript 生成元」に追加する。
 
-## 動作要件
+## 招待リンクとフォルダ共有
 
-*   **ブラウザ:** 最新版のChromeまたはSafariを推奨します。
-*   **Googleアカウント:** Google Driveへのアクセス権限を持つGoogleアカウントが必要です。
-*   **インターネット接続:** 初回サインイン時およびアップロード時に必要です。オフライン時には撮影した写真が一時保存され、オンライン復帰後にアップロードが再開されます。
+- ベース URL: `https://<your-deployment>.vercel.app`
+- 共有フォルダを固定する場合: `https://<your-deployment>.vercel.app/?folder=<DriveFolderId>`
+- **INVITE_ALLOWLIST** に含まれないメールは `/not-invited` へ案内される。
+- 許可リストの件数が **95 以上**で、かつメールがリスト外の場合は GCP 採算都合の **grace degradation** として `/full`（定員ページ）へルーティングする。
 
-## GCP Project Setup (Google Cloud Platform)
+## GCP / OAuth（テスト・本番）
 
-Google Drive APIを使用するためには、GCPプロジェクトでの設定が必要です。
+1. Google Cloud で **Google Drive API** を有効化する。
+2. **OAuth クライアント ID**（ウェブアプリケーション）を作成する。
+3. **承認済みの JavaScript 生成元**に `http://localhost:3000` と本番 URL を入れる。
+4. **テストユーザー**を OAuth 同意画面に追加する（公開前は外部テスター扱いになる）。
+5. スコープはアプリ実装に合わせ **`drive.file` 等の限定スコープ** を使う（方針は `/privacy` 参照）。
 
-1.  **新しいGCPプロジェクトを作成**するか、既存のプロジェクトを選択します。
-2.  **Google Drive APIを有効化**します。
-3.  **OAuth 2.0 Client IDを作成**します。
-    *	アプリケーションの種類: 「ウェブアプリケーション」を選択します。
-    *	承認済みのJavaScript生成元: アプリケーションがデプロイされるURL（例: `http://localhost:3000`, `https://your-app-name.vercel.app`）を追加します。
-    *	承認済みのリダイレクトURI: 不要です（GISライブラリが自動で処理します）。
-4.  作成されたクライアントIDをコピーし、`NEXT_PUBLIC_GOOGLE_CLIENT_ID`として環境変数に設定します。
+`NEXT_PUBLIC_GOOGLE_CLIENT_ID` にクライアント ID を設定する。
 
-## Deploy to Vercel
+## 主要な環境変数
 
-このアプリケーションはVercelへのデプロイを前提としています。
+| 変数 | 用途 |
+|------|------|
+| `NEXT_PUBLIC_GOOGLE_CLIENT_ID` | GIS / Drive クライアント ID |
+| `COOKIE_SECRET` | 署名 Cookie・KV 暗号化鍵導出のフォールバック（`openssl rand -hex 32`） |
+| `KV_ENCRYPTION_KEY` | KV 永続値の **AES-256-GCM** 用（**推奨**: `openssl rand -hex 32`） |
+| `INVITE_ALLOWLIST` | カンマ区切りメール。空ならゲート無効 |
+| `PRO_USERS` | Tier `pro` のメール（カンマ区切り・trim） |
+| `KV_REST_API_URL` / `KV_REST_API_TOKEN` | Vercel KV（または互換 Redis） |
+| `WEBHOOK_SECRET` | `/api/capture-webhook` の Bearer 検証 |
+| `OPENAI_APPS_SDK_*` | Codex / AI 連携（未設定時は stub） |
 
-1.  **Vercelアカウント**とプロジェクトがGitリポジトリ（GitHub, GitLab, Bitbucketなど）に接続されていることを確認します。
-2.  プロジェクトの**環境変数**に`NEXT_PUBLIC_GOOGLE_CLIENT_ID`を設定します。GCPで取得したOAuth 2.0クライアントIDを指定してください。
-3.  **Build & Development Settings**:
-    *	**FRAMEWORK PRESET**: Next.js
-    *	**BUILD COMMAND**: `pnpm build`
-    *	**OUTPUT DIRECTORY**: `.next`
-4.  Gitリポジリトリにプッシュすると、Vercelが自動的にデプロイを開始します。
+詳細は `.env.local.example`。
 
-## シェア方法
+## AI データフロー（Z3 要約）
 
-このアプリのURLに`?folder=あなたのフォルダID`を追加することで、特定のGoogle Driveフォルダを友達と簡単に共有できます。
-例: `https://your-app-name.vercel.app/?folder=xxxxxxxxxxxxxxxxxxxxxxxxx`
-このURLを共有すると、受け取った友達は自分のGoogleアカウントでサインインし、アプリを開くだけで同じフォルダに写真をアップロードできるようになります。
+1. **オプトイン**: 設定の「AI 補助」が ON のときだけ OCR・音声・チャットバック経路が有効。
+2. **クライアント直結**: 画像バイナリは原則ブラウザから **Google Drive API** へ直接アップロード。
+3. **一時処理**: 解析用テキスト・メタデータは当社指定バックエンドへ送られる場合があるが、方針として **長期保持しない（no retention）** とし、KV 上の状態は **暗号化 envelope（`kvenc:v1:`）** で保護する。
 
-## プライバシー
+## Lighthouse（目安）
 
-このアプリケーションは、Googleアカウントの認証情報やアップロードされた写真のデータをサーバーサイドで保存しません。全てのデータ（Google認証トークン、フォルダID、一時保存された写真データなど）は、ユーザーのブラウザのIndexedDBまたはLocalStorageにのみ保存されます。これにより、ユーザーのプライバシーが最大限に保護されます。
+- **Performance**: First Load JS はルートで ~100kB 前後を目標（本番で再計測すること）。
+- **Accessibility / Best Practices / SEO**: 主要ページで 90+ を狙う。実数値はデプロイ後に Chrome DevTools で取得。
 
-## Phase 2 Backlog (今後の開発予定)
+## スクリプト
 
-*	バックグラウンド同期: アプリを閉じた後もアップロードを継続。
-*	複数アカウント対応: 複数のGoogleアカウントを切り替えて使用。
-*	アップロードキューのUI: アップロード状況と履歴の表示。
+```bash
+pnpm install
+pnpm icons:gen   # app/icon.svg → PNG・アイコンファイル生成（sharp）
+pnpm dev
+pnpm build
+pnpm test        # Vitest（46 件想定）
+pnpm e2e         # Playwright
+```
 
-## Lighthouse Score (測定値)
+## ライセンス
 
-| Category       | Score |
-| :------------- | :---- |
-| Performance    | --    |
-| Accessibility  | --    |
-| Best Practices | --    |
-| SEO            | --    |
-
-<!-- Note: Run Lighthouse locally to fill in the scores after final build. -->
+リポジトリ内の `LICENSE` を参照。

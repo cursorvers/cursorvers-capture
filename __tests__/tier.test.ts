@@ -40,37 +40,24 @@ describe('Middleware and API Route environment variable parsing', () => {
   // No global beforeEach/afterAll with jest.resetModules() here.
   // We'll manage process.env within individual tests if needed.
 
-  describe('PRO_USERS env parsing returns matching emails', () => {
-    beforeEach(() => {
+  describe('Comma-separated env lists', () => {
+    afterEach(() => {
+      vi.unstubAllEnvs();
+    });
+
+    test('parses PRO_USERS and INVITE_ALLOWLIST with trim', () => {
       vi.stubEnv('PRO_USERS', 'pro1@example.com,pro2@example.com');
-    });
-
-    afterEach(() => {
+      const proParsed = process.env.PRO_USERS?.split(',').map(e => e.trim()) || [];
+      expect(proParsed).toEqual(['pro1@example.com', 'pro2@example.com']);
+      expect(proParsed).toContain('pro1@example.com');
+      expect(proParsed).not.toContain('nonpro@example.com');
       vi.unstubAllEnvs();
-    });
 
-    test('should parse PRO_USERS correctly', () => {
-      const PRO_USERS_PARSED = process.env.PRO_USERS?.split(',').map(e => e.trim()) || [];
-      expect(PRO_USERS_PARSED).toEqual(['pro1@example.com', 'pro2@example.com']);
-      expect(PRO_USERS_PARSED).toContain('pro1@example.com');
-      expect(PRO_USERS_PARSED).not.toContain('nonpro@example.com');
-    });
-  });
-
-  describe('INVITE_ALLOWLIST env parsing returns matching emails', () => {
-    beforeEach(() => {
       vi.stubEnv('INVITE_ALLOWLIST', 'user1@example.com,user2@example.com');
-    });
-
-    afterEach(() => {
-      vi.unstubAllEnvs();
-    });
-
-    test('should parse INVITE_ALLOWLIST correctly', () => {
-      const INVITE_ALLOWLIST_PARSED = process.env.INVITE_ALLOWLIST?.split(',').map(e => e.trim()) || [];
-      expect(INVITE_ALLOWLIST_PARSED).toEqual(['user1@example.com', 'user2@example.com']);
-      expect(INVITE_ALLOWLIST_PARSED).toContain('user1@example.com');
-      expect(INVITE_ALLOWLIST_PARSED).not.toContain('notinvited@example.com');
+      const inviteParsed = process.env.INVITE_ALLOWLIST?.split(',').map(e => e.trim()) || [];
+      expect(inviteParsed).toEqual(['user1@example.com', 'user2@example.com']);
+      expect(inviteParsed).toContain('user1@example.com');
+      expect(inviteParsed).not.toContain('notinvited@example.com');
     });
   });
 });

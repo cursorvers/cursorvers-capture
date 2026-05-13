@@ -10,8 +10,8 @@ vi.mock('@/app/lib/codex-app-server', () => ({
 }));
 
 vi.mock('@/app/lib/kv', () => ({
-  kvSet: vi.fn(),
-  kvGet: vi.fn(),
+  kvSetEncrypted: vi.fn(),
+  kvGetEncrypted: vi.fn(),
   kvDelete: vi.fn(),
 }));
 
@@ -19,13 +19,13 @@ import { POST } from '@/app/api/audio/route';
 import { getGdriveEmail } from '@/app/lib/server-cookie';
 import { requestAudioTranscript } from '@/app/lib/codex-app-server';
 import type { AudioResult } from '@/app/lib/codex-app-server';
-import { kvSet } from '@/app/lib/kv';
+import { kvSetEncrypted } from '@/app/lib/kv';
 
 describe('Audio API Route', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(getGdriveEmail).mockResolvedValue('test@example.com');
-    vi.mocked(kvSet).mockResolvedValue(undefined);
+    vi.mocked(kvSetEncrypted).mockResolvedValue(undefined);
   });
 
   it('should return 401 if unauthorized', async () => {
@@ -67,6 +67,6 @@ describe('Audio API Route', () => {
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toEqual(stub);
     expect(requestAudioTranscript).toHaveBeenCalledWith(payload);
-    expect(kvSet).toHaveBeenCalledWith(`audio:${payload.drive_file_id}`, stub, 604800);
+    expect(kvSetEncrypted).toHaveBeenCalledWith(`audio:${payload.drive_file_id}`, stub, 604800);
   });
 });
