@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { idbGet, idbPut, idbClear } from '@/app/lib/idb';
 import { getOcrEnabled, setOcrEnabled as setOcrEnabledStore } from '@/app/lib/ocr-toggle';
+import { getAudioEnabled, setAudioEnabled as setAudioEnabledStore } from '@/app/lib/audio-toggle';
 import { getDeviceShort, getDeviceId } from '@/app/lib/device';
 import { revokeToken } from '@/app/lib/gis'; // Assuming a revokeToken function exists for sign-out
 import { Suspense } from 'react';
@@ -20,12 +21,7 @@ function SettingsContent(): JSX.Element {
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [shares, setShares] = useState<ShareRecord[]>([]);
   const [ocrEnabled, setOcrEnabled] = useState<boolean>(false);
-
-  // Workaround for ESLint: setOcrEnabled is used in handleOcrToggle and within a useEffect, but ESLint reports it as unused.
-  useEffect(() => {
-    // This effect intentionally does nothing at runtime but satisfies the linter.
-     
-  }, [setOcrEnabled]); // eslint-disable-line @typescript-eslint/no-unused-vars
+  const [audioNoteEnabled, setAudioNoteEnabled] = useState<boolean>(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -67,8 +63,10 @@ function SettingsContent(): JSX.Element {
       setDeviceShort(getDeviceShort());
       // Load OCR enabled status
       const ocrStatus = await getOcrEnabled();
+      const audioStatus = await getAudioEnabled();
       if (!cancelled) {
-        setOcrEnabledStore(ocrStatus);
+        setOcrEnabled(ocrStatus);
+        setAudioNoteEnabled(audioStatus);
       }
     })();
     return () => {
@@ -92,8 +90,15 @@ function SettingsContent(): JSX.Element {
   const handleOcrToggle = async () => {
     const newValue = !ocrEnabled;
     await setOcrEnabledStore(newValue);
-    setOcrEnabledStore(newValue);
+    setOcrEnabled(newValue);
     setStatusMessage(`OCR 自動抽出を ${newValue ? '有効' : '無効'} にしました。`);
+  };
+
+  const handleAudioToggle = async () => {
+    const newValue = !audioNoteEnabled;
+    await setAudioEnabledStore(newValue);
+    setAudioNoteEnabled(newValue);
+    setStatusMessage(`音声メモ（長押し録音）を ${newValue ? '有効' : '無効'} にしました。`);
   };
 
   const handleSignOut = async () => {
@@ -197,6 +202,33 @@ function SettingsContent(): JSX.Element {
           </p>
           <p className="mt-1 text-xs text-neutral-600">
             機密情報を含む場合はオフにしてください。
+          </p>
+        </div>
+
+        {/* Audio note toggle */}
+        <div className="w-full rounded-xl border border-neutral-800 bg-neutral-900/30 px-4 py-3 text-left text-xs text-neutral-400 mb-4">
+          <div className="flex items-center justify-between mb-2">
+            <label htmlFor="audio-note-toggle" className="block text-neutral-200 text-sm font-medium">
+              音声メモ（長押し録音）
+            </label>
+            <button
+              id="audio-note-toggle"
+              role="switch"
+              aria-checked={audioNoteEnabled}
+              onClick={() => void handleAudioToggle()}
+              className={`${audioNoteEnabled ? 'bg-blue-600' : 'bg-neutral-700'} relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-neutral-900`}
+            >
+              <span className="sr-only">音声メモを有効/無効にする</span>
+              <span
+                className={`${audioNoteEnabled ? 'translate-x-6' : 'translate-x-1'} inline-block h-4 w-4 transform rounded-full bg-white transition-transform`}
+              />
+            </button>
+          </div>
+          <p className="mt-2 text-xs text-neutral-500">
+            撮影ボタンを長押しすると最大15秒の音声メモを録音し、Google Drive ファイルにメタデータとして保存できます。
+          </p>
+          <p className="mt-1 text-xs text-neutral-600">
+            機密会話は録音しないでください
           </p>
         </div>
 

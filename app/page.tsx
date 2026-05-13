@@ -2,6 +2,7 @@
 
 import { useTier } from "@/app/lib/tier";
 
+import dynamic from "next/dynamic";
 import { CameraButton } from "@/app/components/CameraButton";
 import { SignInButton } from "@/app/components/SignInButton";
 import { Suspense, useCallback, useEffect, useState, type JSX } from "react";
@@ -9,14 +10,19 @@ import { useSearchParams } from "next/navigation";
 import { idbGet, idbPut } from "@/app/lib/idb";
 import { getDeviceShort } from "@/app/lib/device";
 import { getCurrentToken } from "@/app/lib/gis";
-import { uploadBlob } from "@/app/lib/drive"; // Import uploadBlob
-import { Chatback } from "@/app/components/Chatback"; // Import Chatback component
-import { ShareButton } from "@/app/components/ShareButton"; // Import ShareButton component
-import { OcrPanel } from '@/app/components/OcrPanel';
+import { uploadBlob } from "@/app/lib/drive";
+import { Chatback } from "@/app/components/Chatback";
+import { ShareButton } from "@/app/components/ShareButton";
+import { OcrPanel } from "@/app/components/OcrPanel";
+import { getAudioEnabled } from "@/app/lib/audio-toggle";
 
-type ConfigFolderRecord = { key: "folder_id"; value: string }; // Re-added type definition
+const AudioPanel = dynamic(
+  () =>
+    import("@/app/components/AudioPanel").then((mod) => mod.AudioPanel),
+  { ssr: false },
+);
 
-// ... (rest of the imports)
+type ConfigFolderRecord = { key: "folder_id"; value: string };
 
 function HomeContent(): JSX.Element {
   const searchParams = useSearchParams();
@@ -33,13 +39,19 @@ function HomeContent(): JSX.Element {
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [isOffline, setIsOffline] = useState(false);
   const [newFolderId, setNewFolderId] = useState('');
-  const [currentOrigin, setCurrentOrigin] = useState(''); // NEW
+  const [currentOrigin, setCurrentOrigin] = useState('');
+  const [captureAudioBlob, setCaptureAudioBlob] = useState<Blob | null>(null);
+  const [audioNoteEnabled, setAudioNoteEnabled] = useState(false);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
       setCurrentOrigin(window.location.origin);
     }
-  }, []); // Run once on client-side mount
+  }, []);
+
+  useEffect(() => {
+    void getAudioEnabled().then(setAudioNoteEnabled);
+  }, []);
 
   useEffect(() => {
     const handleOnline = () => setIsOffline(false);
@@ -111,12 +123,18 @@ function HomeContent(): JSX.Element {
   }, []);
 
   const handleCaptured = useCallback(
-    async (blob: Blob, filename: string, shot_at: number): Promise<void> => {
-      console.log("S3 capture", { blob, filename, shot_at });
+    async (
+      blob: Blob,
+      filename: string,
+      shot_at: number,
+      audioBlob?: Blob,
+    ): Promise<void> => {
+      console.log("S3 capture", { blob, filename, shot_at, audioBlob });
       setLastCapture({ filename, shot_at });
       setStatusMessage(`「${filename}」を撮影しました。`);
-      setUploadedFileId(null); // Reset before new upload
-      setImageBase64(null); // Reset image base64
+      setUploadedFileId(null);
+      setImageBase64(null);
+      setCaptureAudioBlob(null);
 
       // Convert blob to base64
       const reader = new FileReader();
@@ -141,6 +159,9 @@ function HomeContent(): JSX.Element {
 
         setUploadedFileId(fileId);
         setStatusMessage('✅ アップロード完了');
+        if (audioBlob) {
+          setCaptureAudioBlob(audioBlob);
+        }
 
         // Dispatch to capture-webhook
         const sha1 = 'dummy-sha1'; // Placeholder, replace with actual SHA1 hash if available
@@ -248,6 +269,7 @@ function HomeContent(): JSX.Element {
         {signedIn ? (
           <CameraButton
             deviceShort={deviceShort}
+            audioNoteEnabled={audioNoteEnabled}
             onCaptured={handleCaptured}
           />
         ) : (
@@ -284,9 +306,12 @@ function HomeContent(): JSX.Element {
             <Chatback driveFileId={uploadedFileId} />
             <ShareButton driveFileId={uploadedFileId} filename={lastCapture?.filename || 'ファイル'} />
           </div>
-          {imageBase64 && (
+          {captureAudioBlob ? (
+            <AudioPanel driveFileId={uploadedFileId} audioBlob={captureAudioBlob} />
+          ) : null}
+          {imageBase64 ? (
             <OcrPanel driveFileId={uploadedFileId} imageBase64={imageBase64} />
-          )}
+          ) : null}
         </div>
       )}
 
