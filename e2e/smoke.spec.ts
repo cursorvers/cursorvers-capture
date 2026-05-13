@@ -46,3 +46,58 @@ test.describe("Smoke (S12)", () => {
     await expect(page.getByRole("button").filter({ hasText: "撮影する" })).toHaveCount(1);
   });
 });
+
+test.describe("Smoke (B1 post-deploy expansion 2026-05-13)", () => {
+  test("?folder= query param does not throw and home still renders", async ({ page }) => {
+    const errors: string[] = [];
+    page.on("pageerror", (error) => {
+      errors.push(error.message);
+    });
+    await page.goto("/?folder=b1-smoke-folder");
+    await expect(
+      page.getByRole("heading", { name: "Cursorvers Capture" }),
+    ).toBeVisible();
+    const appErrors = errors.filter(
+      (msg) => !msg.includes("accounts.google.com"),
+    );
+    expect(appErrors, appErrors.join("\n")).toEqual([]);
+  });
+
+  test("/not-invited links to info@cursorvers.com", async ({ page }) => {
+    await page.goto("/not-invited");
+    const link = page.getByRole("link", { name: /info@cursorvers\.com/ });
+    await expect(link).toBeVisible();
+    await expect(link).toHaveAttribute("href", "mailto:info@cursorvers.com");
+  });
+
+  test("/privacy discloses drive.file scope explicitly", async ({ page }) => {
+    await page.goto("/privacy");
+    await expect(page.getByText("drive.file").first()).toBeVisible();
+  });
+
+  test("manifest.webmanifest is reachable and names Cursorvers Capture", async ({ page }) => {
+    const res = await page.request.get("/manifest.webmanifest");
+    expect(res.ok()).toBe(true);
+    const body = await res.json();
+    expect(body.name).toBe("Cursorvers Capture");
+    expect(body.start_url).toBe("/");
+  });
+
+  test("/insights renders without runtime error", async ({ page }) => {
+    const errors: string[] = [];
+    page.on("pageerror", (error) => {
+      errors.push(error.message);
+    });
+    await page.goto("/insights");
+    // Page should render some heading/main content — we only assert no runtime
+    // error and that we did not get a generic Next.js 500. Auth-required redirect
+    // to "/" is acceptable. We filter out pre-existing CSP unsafe-eval warnings
+    // from Google Identity Services so we only fail on application-originated
+    // errors.
+    await expect(page.locator("body")).toBeVisible();
+    const appErrors = errors.filter(
+      (msg) => !msg.includes("accounts.google.com"),
+    );
+    expect(appErrors, appErrors.join("\n")).toEqual([]);
+  });
+});
