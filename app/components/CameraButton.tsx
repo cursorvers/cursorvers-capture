@@ -210,8 +210,30 @@ export function CameraButton({
       return;
     }
 
-    const { processCapturedFile } = await import("@/app/lib/camera");
-    const { blob, shot_at } = await processCapturedFile(file);
+    const { processCapturedFile, CameraCaptureError } = await import(
+      "@/app/lib/camera"
+    );
+    let blob: Blob;
+    let shot_at: number;
+    try {
+      const processed = await processCapturedFile(file);
+      blob = processed.blob;
+      shot_at = processed.shot_at;
+    } catch (err) {
+      if (err instanceof CameraCaptureError) {
+        const msg =
+          err.code === "unsupported_type"
+            ? "画像ファイルを選択してください (動画や他形式は未対応)"
+            : err.code === "empty_file"
+              ? "ファイルの読み込みに失敗しました。もう一度撮影してください"
+              : "画像の処理に失敗しました。別の写真でお試しください";
+        if (typeof window !== "undefined") {
+          window.alert(msg);
+        }
+        return;
+      }
+      throw err;
+    }
     const short = await sha1Short(blob);
     const filename = buildFilename(shot_at, short, deviceShort);
 

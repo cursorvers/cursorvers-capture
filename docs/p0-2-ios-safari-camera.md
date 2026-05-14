@@ -1,8 +1,47 @@
-# P0-2: iOS Safari Camera Permission + getUserMedia 互換性 Design
+# P0-2: iOS Safari Camera 互換性 Design (実装済 + 残検証)
 
-**Date**: 2026-05-14 (FUGUE 3-agent vote、Wave 1 W1-2 採択、前回 P0 で deferred)
-**Status**: design + user 検証手順のみ。実装は次 session
-**Scope**: iOS Safari (Mobile) と Android Chrome の getUserMedia 差異吸収、camera permission UX 統一
+**Date**: 2026-05-14 (FUGUE 3-agent vote、Wave 1 W1-2 採択)
+**Status**: 主要 hardening 実装済 (`app/lib/camera.ts` + `app/components/CameraButton.tsx` + `__tests__/camera.test.ts` 6 cases、commit ハッシュは本 doc commit と同じ)
+**Scope 訂正 (2026-05-14 実装時の audit で判明)**: 当アプリは `<input type="file" accept="image/*" capture="environment">` パターンを採用しており、**getUserMedia / `<video>` element / playsinline 等は使用しない**。本 doc 旧版は誤った前提に立っていた。
+
+---
+
+## 実装済 (本 commit)
+
+`app/lib/camera.ts` に以下を追加:
+
+1. `CameraCaptureError` class — code: `unsupported_type` / `compression_failed` / `empty_file`
+2. `isAcceptableImageFile(file)` — non-image (video/pdf/unknown) を早期 reject
+3. `processCapturedFile` 戻り値に `was_heic: boolean` 追加 (HEIC 検知を caller に surface、Sentry breadcrumb 候補)
+4. `imageCompression` を try/catch + `CameraCaptureError` で再 throw
+
+`app/components/CameraButton.tsx` の `onFileChange` で:
+
+- `CameraCaptureError` catch + `window.alert` で日本語 UI message
+- `unsupported_type` → 「画像ファイルを選択してください (動画や他形式は未対応)」
+- `empty_file` → 「ファイルの読み込みに失敗しました。もう一度撮影してください」
+- `compression_failed` → 「画像の処理に失敗しました。別の写真でお試しください」
+
+`__tests__/camera.test.ts` に 6 cases (vitest jsdom、`browser-image-compression` mock):
+- standard JPEG accept
+- HEIC flag
+- empty file reject
+- video file reject
+- type-less + non-image extension reject
+- compression failure wrap
+
+## 残検証 (user 実機テスト、5/15-5/19 配布前)
+
+---
+
+### 5/15-5/19 配布前 残検証チェックリスト
+
+- [ ] iPhone Safari で `<input capture="environment">` でカメラが起動するか
+- [ ] HEIC で保存される iPhone (iOS 11+) で processCapturedFile が JPEG 化するか
+- [ ] iOS Safari で間違って動画を選んだ際に `unsupported_type` alert が表示されるか
+- [ ] Android Chrome で `accept="image/*"` で画像のみ表示されるか
+- [ ] iOS Safari で画像が EXIF Orientation 通り正しい向きでアップロードされるか (browser-image-compression 任せ、要 verify)
+- [ ] 既存音声メモ (long-press) が iOS 14.3+ で動作、未満で gracefully disable されるか
 
 ---
 
