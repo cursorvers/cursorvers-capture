@@ -2,23 +2,12 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
-body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
-}
+/*
+ * Body color / background は Tailwind class (`bg-navy-900 text-gray-100`) を
+ * 優先する。以前ここで定義されていた element-selector `body { ... }` rule は
+ * specificity の cascade で Tailwind class より後勝ちしてしまい、layout の
+ * bg-navy-900 を上書きしていた。Tailwind native の utility に統一する。
+ */
 
 @layer utilities {
   .text-balance {
