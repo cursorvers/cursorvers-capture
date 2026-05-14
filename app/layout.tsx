@@ -16,6 +16,7 @@ export const viewport: Viewport = {
 
 import { SWRegistry } from "./components/SWRegistry";
 import { Header } from "./components/Header";
+import { OnlineStatusBanner } from "./components/OnlineStatusBanner";
 import { Footer } from "./components/Footer";
 
 export default function RootLayout({
@@ -28,6 +29,7 @@ export default function RootLayout({
       <body className="flex min-h-screen flex-col bg-navy-900 antialiased text-gray-100">
         <SWRegistry />
         <Header />
+        <OnlineStatusBanner />
         <main className="flex-grow">{children}</main>
         <Footer />
       </body>
