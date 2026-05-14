@@ -105,15 +105,36 @@ memory `cursorvers_client_roster.md` / `cursorvers_kozai_first_advisory.md` / `c
 
 ---
 
-## 6. 後回し / 別 run 案件
+## 6. 後回し / 別 run 案件 (design doc 完納済み、実装は trigger 待ち)
 
-合議結果に基づき、本 critical path 外として明示:
+本 critical path 外の全項目について、**実装前の設計 doc は完納済**。各 doc は trigger 到達時に「次 session で実装着手するための blueprint」として機能する。
+
+### 6.1 Design doc 完納済 (実装 trigger 待ち)
+
+| 項目 | doc | 規模 | Trigger |
+|---|---|---|---|
+| P0-2 iOS Safari camera 互換性 | [docs/p0-2-ios-safari-camera.md](docs/p0-2-ios-safari-camera.md) | 3h | 配布前 (5/15-5/19) に実機 audit |
+| P0-5 OAuth token silent refresh | [docs/p0-5-oauth-silent-refresh.md](docs/p0-5-oauth-silent-refresh.md) | 4h | 配布後 1 週間以内に再ログイン頻度高なら |
+| BS-1+BS-2+BS-5 Resilience (offline + retry) | [docs/resilience-offline-retry.md](docs/resilience-offline-retry.md) | 4h | 検証 1 週で offline event 観測 |
+| P1-2+P1-3+BS-4 Observability + quarterly review | [docs/observability-plan.md](docs/observability-plan.md) | 3h | 配布**前** (Sentry 導入) |
+| P2-2+P2-3 Tier B implementation (gateway 接続) | [docs/tier-b-implementation-plan.md](docs/tier-b-implementation-plan.md) | 6-10h | 検証完了後 + 顧問要望時 |
+| BS-3 localStorage pro_tier threat model | [docs/security-pro-tier-storage.md](docs/security-pro-tier-storage.md) | 4h | Stripe webhook 着手判断 |
+| BS-6 CI artifact retention policy | [docs/ci-artifact-policy.md](docs/ci-artifact-policy.md) | 1-2h | origin 化 + GitHub Actions 導入時 |
+| B4 Notion ↔ INVITE_ALLOWLIST 同期 | [docs/notion-allowlist-sync.md](docs/notion-allowlist-sync.md) | 2h | invite 30 件超 / 月次同期負担増 |
+| B5 Vercel custom domain (capture.cursorvers.com) | [docs/custom-domain-setup.md](docs/custom-domain-setup.md) | 1h | 配布範囲拡大判断 |
+| B6 Gateway 接続 SOP | [docs/gateway-integration.md](docs/gateway-integration.md) | (env 投入のみ) | Tier B 本実装後 |
+
+### 6.2 doc 不要 / 環境依存
 
 - **A5**: Vercel KV 有効化 — fallback で十分動作、後で必要時 enable
-- **B4-B6 実装**: Notion 同期 (案 C MVP) / custom domain (capture.cursorvers.com) / gateway 接続 — 検証フェーズ完了後の任意着手。doc は完納済 ([docs/notion-allowlist-sync.md](docs/notion-allowlist-sync.md) / [docs/custom-domain-setup.md](docs/custom-domain-setup.md) / [docs/gateway-integration.md](docs/gateway-integration.md))
-- **Gateway schema 不整合解消** (重要、Phase B-2 着手前 gate): PWA expected schema (`CodexChatbackResult` 等) と gateway scaffold actual schema (`{text, usage, warnings}`) の不整合を 案 a (gateway 側合わせ) / 案 b (PWA adapter) / 案 c (unified schema) のいずれかで確定する必要あり。[docs/gateway-integration.md §3](docs/gateway-integration.md) 参照
-- **C 全体 (cursorvers-codex-gateway Phase B-2+)**: 別 FUGUE run、実 user フィードバック取得後の方が要件が固まる
+- **C 全体 (cursorvers-codex-gateway Phase B-2+)**: 別 FUGUE run、別 repo (`~/Dev/cursorvers-codex-gateway/`)、実 user フィードバック後
 - **OAuth verification 申請**: Testing mode 100 user 上限まで余裕、超過時に再評価
+
+### 6.3 着手優先順 (配布前 → 検証中 → 検証後)
+
+1. **配布前 (5/15-5/19)**: P0-2 iOS Safari audit + P1-2 Sentry 導入 = 計 ~6h
+2. **検証中 (5/20-6/12)**: P0-5 OAuth refresh (頻度を見て判断) + BS-1+2+5 Resilience (offline event 観測時)
+3. **検証完了後 (6/13-)**: B4/B5/B6 実装 + Tier B + OAuth verification + BS-3 security + BS-6 CI
 
 ---
 
