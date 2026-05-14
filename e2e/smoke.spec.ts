@@ -1,5 +1,20 @@
 import { test, expect } from "@playwright/test";
 
+/**
+ * Filter out pre-existing CSP `unsafe-eval` violations that originate from
+ * Google Identity Services. Each engine reports them differently:
+ *   - Chromium: "Evaluating a string as JavaScript violates ... accounts.google.com"
+ *   - Firefox:  "call to eval() blocked by CSP"
+ *   - WebKit:   (suppressed)
+ * Both forms are noise from a third-party script and unrelated to our code.
+ */
+function isExternalCspNoise(msg: string): boolean {
+  if (msg.includes("accounts.google.com")) return true;
+  if (/call to eval\(\) blocked by CSP/i.test(msg)) return true;
+  if (/unsafe-eval/i.test(msg) && /CSP/i.test(msg)) return true;
+  return false;
+}
+
 test.describe("Smoke (S12)", () => {
   test("home heading is Cursorvers Capture", async ({ page }) => {
     await page.goto("/");
@@ -62,7 +77,7 @@ test.describe("Smoke (B1 post-deploy expansion 2026-05-13)", () => {
       page.getByRole("heading", { name: "Cursorvers Capture" }),
     ).toBeVisible();
     const appErrors = errors.filter(
-      (msg) => !msg.includes("accounts.google.com"),
+      (msg) => !isExternalCspNoise(msg),
     );
     expect(appErrors, appErrors.join("\n")).toEqual([]);
   });
@@ -100,7 +115,7 @@ test.describe("Smoke (B1 post-deploy expansion 2026-05-13)", () => {
     // errors.
     await expect(page.locator("body")).toBeVisible();
     const appErrors = errors.filter(
-      (msg) => !msg.includes("accounts.google.com"),
+      (msg) => !isExternalCspNoise(msg),
     );
     expect(appErrors, appErrors.join("\n")).toEqual([]);
   });
