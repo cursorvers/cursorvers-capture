@@ -150,10 +150,13 @@ memory `cursorvers_client_roster.md` / `cursorvers_kozai_first_advisory.md` / `c
 
 ---
 
-## 9. 更新ログ
+## 9. 履歴
 
-| Date | 変更 | Source |
-|---|---|---|
-| 2026-05-13 | 新規作成。Critical Path / Checkpoint / Exit 条件を SSOT 化 | FUGUE multi-agent vote (B3 推奨、2/3 票) |
-| 2026-05-13 | 配布メール A/B/C を polish v2 化 (Codex App Server → 「別サーバー」、stub mode → 「現時点では未稼働」、allowlist → 「限定 URL」表記等) | FUGUE multi-agent vote (B2、続編) |
-| 2026-05-13 | critic 合議 (GLM + OpenCode CONDITIONAL_APPROVE) を反映: §3 緊急復旧 5 分手順 / §6 schema 不整合 blocker / §7 Exit 条件 deadline (5/19→6/2 等) / §5 case 正規化 + 100 user 上限注記 | FUGUE multi-agent critic vote (must-fix 採択) |
+履歴は **`git log -- OPERATIONS.md` で完全追跡可能** (本 doc を modify した commit は必ず本 file の差分を含む)。
+従来この場所にあった日付別 table は git log と redundant のため削除した (2026-05-14、FUGUE 3-agent vote の OpenCode + GLM 提案で採択)。
+
+主要な節目だけ補注:
+
+- 初出: 2026-05-13 (FUGUE multi-agent B3 採択、commit `bc52cda`)
+- 主要拡張: critic 合議反映 (commit `40b0934`) → P0-1+P0-3+P0-4 hardening (commit `af429b3`) → critique 2026-05-14 反映 (commit `f2f75d9`)
+- 後続 doc: `docs/security-pro-tier-storage.md` `docs/ci-artifact-policy.md` (2026-05-14、threat model + CI policy)
