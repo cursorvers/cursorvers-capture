@@ -39,6 +39,20 @@ async function withNetworkRetry(fn: () => Promise<Response>): Promise<Response> 
 const RETRYABLE_BACKOFF_MS = [1000, 2000, 4000, 8000, 16000];
 
 /**
+ * Drive / Google API `reason` values that indicate the caller is being
+ * throttled and should retry with backoff rather than surface a hard error.
+ * Externalized so new reasons (e.g. future quota signals) can be added without
+ * editing is403RateLimited() body.
+ */
+const RETRYABLE_403_REASONS: ReadonlyArray<string> = [
+  "rateLimitExceeded",
+  "userRateLimitExceeded",
+  "quotaExceeded",
+  "dailyLimitExceeded",
+  "RESOURCE_EXHAUSTED",
+];
+
+/**
  * Inspect a Response body for Google Drive rate-limit / quota error reasons.
  * Returns true when retrying with backoff is appropriate; false otherwise.
  * Body is cloned so the caller can still consume the original response.
@@ -56,15 +70,7 @@ async function is403RateLimited(res: Response): Promise<boolean> {
     }
     const top = body?.error?.status;
     if (typeof top === "string") reasons.push(top);
-    return reasons.some((r) =>
-      [
-        "rateLimitExceeded",
-        "userRateLimitExceeded",
-        "quotaExceeded",
-        "dailyLimitExceeded",
-        "RESOURCE_EXHAUSTED",
-      ].includes(r),
-    );
+    return reasons.some((r) => RETRYABLE_403_REASONS.includes(r));
   } catch {
     return false;
   }
