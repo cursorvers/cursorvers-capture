@@ -2,6 +2,7 @@
 
 import { useEffect, type JSX } from "react";
 import type { HistoryEntry } from "@/app/lib/drive-history";
+import { CommentThread } from "@/app/components/CommentThread";
 
 type Props = {
   entry: HistoryEntry | null;
@@ -136,6 +137,10 @@ export function CaptureDetailSheet({ entry, onClose }: Props): JSX.Element | nul
               この写真には Codex の記録がありません
             </p>
           )}
+
+          <div className="mt-2 rounded-2xl border border-hairline bg-ink-800/20 p-3">
+            <CommentThread fileId={entry.id} />
+          </div>
 
           <p className="text-[11px] text-ink-400">{entry.name}</p>
           {entry.webViewLink ? (

@@ -11,6 +11,7 @@ import { getCurrentToken } from "@/app/lib/gis";
 import { EditableChip } from "@/app/components/EditableChip";
 import { DocTypeChip } from "@/app/components/DocTypeChip";
 import { buildCaptureRecord, getCapture, putCapture } from "@/app/lib/captures-db";
+import { CommentThread } from "@/app/components/CommentThread";
 
 type Props = {
   state: "idle" | "loading" | "ready" | "error";
@@ -303,6 +304,12 @@ export function CaptureAnalysisPanel({
             {renameErr ? (
               <p className="mt-1 text-[11px] text-red-300/80">{renameErr}</p>
             ) : null}
+          </div>
+        ) : null}
+
+        {driveFileId ? (
+          <div className="pt-1">
+            <CommentThread fileId={driveFileId} compact />
           </div>
         ) : null}
 
