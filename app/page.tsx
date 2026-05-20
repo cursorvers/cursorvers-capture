@@ -16,6 +16,7 @@ import {
 import { buildCaptureRecord, putCapture } from "@/app/lib/captures-db";
 
 import { SignInButton } from "@/app/components/SignInButton";
+import { InviteBanner } from "@/app/components/InviteBanner";
 import { Suspense, useCallback, useEffect, useState, type JSX } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -271,6 +272,7 @@ function HomeContent(): JSX.Element {
       </section>
 
       {/* Sign-in + Capture stack */}
+      <InviteBanner />
       <section className="flex flex-col gap-3">
         <SignInButton minimal />
         {signedIn ? (

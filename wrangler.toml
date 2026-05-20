@@ -12,3 +12,7 @@ compatibility_date = "2025-04-01"
 # Plain env (build-time) — set via the Pages dashboard or wrangler.toml [vars]:
 [vars]
 NEXT_PUBLIC_GOOGLE_CLIENT_ID = "622805196021-t98feu6vki9shdeh9ghs3epsfvbmtton.apps.googleusercontent.com"
+
+[[kv_namespaces]]
+binding = "INVITE_KV"
+id = "86572d77dd2e4ae58d86f7a8d6ab86fd"

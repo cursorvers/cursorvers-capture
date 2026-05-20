@@ -4,21 +4,22 @@ import {
   inviteBlockPath,
   getTierForEmail,
 } from "./_shared/invite-gate";
+import { isEmailClaimed } from "./_shared/invite-kv";
 
 interface Env {
   COOKIE_SECRET: string;
   INVITE_ALLOWLIST?: string;
   PRO_USERS?: string;
+  INVITE_KV?: KVNamespace;
 }
 
 const COOKIE_NAME = "gdrive_email";
 
-// Paths that must never be blocked: assets, the auth endpoint itself, the
-// "you're not invited / full" landing pages, and the public legal docs.
 function isPublicPath(p: string): boolean {
   return (
     p.startsWith("/_next") ||
     p.startsWith("/api/me") ||
+    p.startsWith("/api/invite") ||  // invite endpoints は middleware で弾かない
     p === "/favicon.ico" ||
     p === "/manifest.webmanifest" ||
     p === "/sw.js" ||
@@ -41,8 +42,6 @@ export const onRequest: PagesFunction<Env> = async (context) => {
   }
 
   const signed = readCookie(request.headers.get("cookie"), COOKIE_NAME);
-
-  // Not signed in → let the page render so the user can sign in via GIS
   if (!signed) {
     return next();
   }
@@ -54,19 +53,35 @@ export const onRequest: PagesFunction<Env> = async (context) => {
     email = null;
   }
 
-  // Invalid / tampered cookie → treat as not signed in
   if (!email) {
     return next();
   }
 
-  const allowlist = parseInviteAllowlist(env.INVITE_ALLOWLIST);
-  const block = inviteBlockPath(allowlist, email);
+  // 1. 静的 env allowlist
+  const envAllowlist = parseInviteAllowlist(env.INVITE_ALLOWLIST);
+
+  // 2. KV claim 済 allowlist
+  let claimedOk = false;
+  if (env.INVITE_KV) {
+    try {
+      claimedOk = await isEmailClaimed(env.INVITE_KV, email);
+    } catch {
+      claimedOk = false;
+    }
+  }
+
+  // OR 判定: env allowlist OR KV allowlist
+  const effectiveAllowlist = claimedOk
+    ? [...envAllowlist, email.toLowerCase()]
+    : envAllowlist;
+
+  const block = inviteBlockPath(effectiveAllowlist, email);
   if (block) {
     return Response.redirect(`${url.origin}${block}`, 302);
   }
 
   const proUsers = parseInviteAllowlist(env.PRO_USERS);
-  const tier = getTierForEmail(email, allowlist, proUsers);
+  const tier = getTierForEmail(email, effectiveAllowlist, proUsers);
 
   const response = await next();
   if (tier !== "unknown") {
