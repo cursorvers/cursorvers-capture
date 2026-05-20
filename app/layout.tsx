@@ -28,6 +28,16 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ja">
+      <head>
+        {/*
+          Google Identity Services preload. Loading the script here rather
+          than lazily inside gis.loadGisScript() removes the await chain
+          between the user's click and the OAuth popup — iOS Safari treats
+          a popup that arrives after async hops as non-user-initiated and
+          blocks it.
+        */}
+        <script async src="https://accounts.google.com/gsi/client" />
+      </head>
       <body className="flex min-h-screen flex-col bg-ink-900 font-sans text-ink-100 antialiased">
         <SWRegistry />
         <Header />
