@@ -59,6 +59,8 @@ function HomeContent(): JSX.Element {
   const [analysis, setAnalysis] = useState<CaptureAnalysis | null>(null);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
   const [driveWebViewUrl, setDriveWebViewUrl] = useState<string | null>(null);
+  const [driveFileId, setDriveFileId] = useState<string | null>(null);
+  const [originalFilename, setOriginalFilename] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
 
@@ -150,6 +152,8 @@ function HomeContent(): JSX.Element {
 
         setStatusMessage("アップロード完了");
         setDriveWebViewUrl(`https://drive.google.com/file/d/${fileId}/view`);
+        setDriveFileId(fileId);
+        setOriginalFilename(filename);
         setAnalysisState("loading");
         setAnalysis(null);
         setAnalysisError(null);
@@ -259,6 +263,8 @@ function HomeContent(): JSX.Element {
           analysis={analysis}
           error={analysisError}
           driveUrl={driveWebViewUrl ?? undefined}
+          driveFileId={driveFileId}
+          originalFilename={originalFilename}
         />
       </section>
 

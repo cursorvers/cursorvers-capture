@@ -8,6 +8,20 @@ type Props = {
   onClose: () => void;
 };
 
+const DOC_BADGE: Record<string, { label: string; tone: string }> = {
+  receipt: { label: "📄 領収書", tone: "border-amber-400/40 bg-amber-400/10 text-amber-200" },
+  memo: { label: "📝 メモ", tone: "border-sky-400/40 bg-sky-400/10 text-sky-200" },
+  business_card: { label: "💳 名刺", tone: "border-emerald-400/40 bg-emerald-400/10 text-emerald-200" },
+  other: { label: "📷 その他", tone: "border-hairline bg-ink-800/60 text-ink-300" },
+};
+
+function formatAmount(amount?: number, currency?: string): string | null {
+  if (amount === undefined) return null;
+  const c = currency || "JPY";
+  if (c === "JPY") return `¥${amount.toLocaleString("ja-JP")}`;
+  return `${c} ${amount.toLocaleString()}`;
+}
+
 function CodexAvatar(): JSX.Element {
   return (
     <span className="relative inline-flex h-9 w-9 shrink-0 items-center justify-center">
@@ -36,6 +50,8 @@ export function CaptureDetailSheet({ entry, onClose }: Props): JSX.Element | nul
 
   if (!entry) return null;
   const a = entry.analysis;
+  const badge = a ? DOC_BADGE[a.doc_type] ?? DOC_BADGE.other : null;
+  const amount = a ? formatAmount(a.extracted?.amount, a.extracted?.currency) : null;
 
   return (
     <div
@@ -69,46 +85,56 @@ export function CaptureDetailSheet({ entry, onClose }: Props): JSX.Element | nul
 
         <div className="mt-4 space-y-3">
           {a ? (
-            <>
-              <div className="flex items-start gap-2.5">
-                <CodexAvatar />
-                <div className="flex-1 space-y-2">
-                  <div className="rounded-2xl rounded-tl-md border border-hairline bg-ink-800/40 px-4 py-3">
-                    <p className="whitespace-pre-line text-[14px] leading-relaxed text-ink-50">
-                      {a.comment}
-                    </p>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    {a.emoji ? (
-                      <span className="inline-flex items-center gap-1 rounded-full border border-accent/40 bg-accent/10 px-2 py-0.5 text-[11px] text-accent-soft">
-                        <span>{a.emoji}</span>
-                        {a.mood ? <span>{a.mood}</span> : null}
-                      </span>
-                    ) : null}
-                    {a.album ? (
-                      <span className="inline-flex items-center gap-1 rounded-full border border-hairline bg-ink-800/60 px-2 py-0.5 text-[11px] text-ink-200">
-                        <span aria-hidden>📁</span>
-                        <span>{a.album}</span>
-                      </span>
-                    ) : null}
-                  </div>
-                  {a.followups.length > 0 ? (
-                    <div className="flex flex-wrap gap-1.5">
-                      {a.followups.slice(0, 2).map((q) => (
-                        <span
-                          key={q}
-                          className="inline-flex rounded-full border border-dashed border-hairline px-2.5 py-1 text-[11px] text-ink-300"
-                        >
-                          {q}
-                        </span>
-                      ))}
-                    </div>
+            <div className="flex items-start gap-2.5">
+              <CodexAvatar />
+              <div className="flex-1 space-y-2">
+                <div className="rounded-2xl rounded-tl-md border border-hairline bg-ink-800/40 px-4 py-3">
+                  <p className="whitespace-pre-line text-[14px] leading-relaxed text-ink-50">
+                    {a.comment}
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {badge ? (
+                    <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${badge.tone}`}>
+                      {badge.label}
+                    </span>
+                  ) : null}
+                  {a.extracted?.vendor ? (
+                    <span className="inline-flex items-center gap-1 rounded-full border border-hairline bg-ink-800/60 px-2 py-0.5 text-[11px] text-ink-100">
+                      🏬 {a.extracted.vendor}
+                    </span>
+                  ) : null}
+                  {amount ? (
+                    <span className="inline-flex items-center gap-1 rounded-full border border-hairline bg-ink-800/60 px-2 py-0.5 text-[11px] font-medium text-ink-100">
+                      💴 {amount}
+                    </span>
+                  ) : null}
+                  {a.extracted?.date_iso ? (
+                    <span className="inline-flex items-center gap-1 rounded-full border border-hairline bg-ink-800/60 px-2 py-0.5 text-[11px] text-ink-100">
+                      🗓 {a.extracted.date_iso}
+                    </span>
+                  ) : null}
+                  {a.suggested_folder ? (
+                    <span className="inline-flex items-center gap-1 rounded-full border border-hairline bg-ink-900/60 px-2 py-0.5 text-[11px] text-ink-300">
+                      📁 {a.suggested_folder}
+                    </span>
                   ) : null}
                 </div>
+                {a.extracted?.items && a.extracted.items.length > 0 ? (
+                  <ul className="rounded-xl border border-hairline bg-ink-800/30 px-4 py-3 text-[12px] leading-relaxed text-ink-100">
+                    {a.extracted.items.map((item, i) => (
+                      <li key={i} className="list-inside list-disc">
+                        {item}
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
               </div>
-            </>
+            </div>
           ) : (
-            <p className="text-[13px] text-ink-300">この写真には Codex の記録がありません</p>
+            <p className="text-[13px] text-ink-300">
+              この写真には Codex の記録がありません
+            </p>
           )}
 
           <p className="text-[11px] text-ink-400">{entry.name}</p>
