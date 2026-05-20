@@ -2,8 +2,15 @@
 
 import { useEffect, useRef, useState, type JSX } from "react";
 import type { CodexReply } from "@/app/lib/capture-analysis";
-import { applyExtension, renameDriveFile } from "@/app/lib/capture-analysis";
+import {
+  applyExtension,
+  renameDriveFile,
+  saveAnalysisToDrive,
+} from "@/app/lib/capture-analysis";
 import { getCurrentToken } from "@/app/lib/gis";
+import { EditableChip } from "@/app/components/EditableChip";
+import { DocTypeChip } from "@/app/components/DocTypeChip";
+import { buildCaptureRecord, getCapture, putCapture } from "@/app/lib/captures-db";
 
 type Props = {
   state: "idle" | "loading" | "ready" | "error";
@@ -12,13 +19,6 @@ type Props = {
   driveUrl?: string;
   driveFileId?: string | null;
   originalFilename?: string | null;
-};
-
-const DOC_BADGE: Record<CodexReply["doc_type"], { label: string; tone: string }> = {
-  receipt: { label: "📄 領収書", tone: "border-amber-400/40 bg-amber-400/10 text-amber-200" },
-  memo: { label: "📝 メモ", tone: "border-sky-400/40 bg-sky-400/10 text-sky-200" },
-  business_card: { label: "💳 名刺", tone: "border-emerald-400/40 bg-emerald-400/10 text-emerald-200" },
-  other: { label: "📷 その他", tone: "border-hairline bg-ink-800/60 text-ink-300" },
 };
 
 function CodexAvatar(): JSX.Element {
@@ -60,8 +60,8 @@ function ThinkingDots(): JSX.Element {
   );
 }
 
-function formatAmount(amount: number | undefined, currency: string | undefined): string | null {
-  if (amount === undefined) return null;
+function formatAmount(amount: number | undefined, currency: string | undefined): string {
+  if (amount === undefined) return "";
   const c = currency || "JPY";
   if (c === "JPY") return `¥${amount.toLocaleString("ja-JP")}`;
   return `${c} ${amount.toLocaleString()}`;
@@ -69,12 +69,17 @@ function formatAmount(amount: number | undefined, currency: string | undefined):
 
 export function CaptureAnalysisPanel({
   state,
-  analysis,
+  analysis: initialAnalysis,
   error,
   driveUrl,
   driveFileId,
   originalFilename,
 }: Props): JSX.Element | null {
+  const [analysis, setAnalysis] = useState<CodexReply | null>(initialAnalysis);
+  useEffect(() => {
+    setAnalysis(initialAnalysis);
+  }, [initialAnalysis]);
+
   const typed = useTypewriter(analysis?.comment ?? "");
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState("");
@@ -87,6 +92,27 @@ export function CaptureAnalysisPanel({
       setName(analysis.suggested_filename);
     }
   }, [analysis?.suggested_filename]);
+
+  async function persist(next: CodexReply): Promise<void> {
+    setAnalysis(next);
+    if (!driveFileId) return;
+    const tok = await getCurrentToken();
+    if (!tok) return;
+    void saveAnalysisToDrive(driveFileId, tok, next).catch(() => undefined);
+    // IDB update — preserve existing parent_id / routed_to.
+    const existing = await getCapture(driveFileId);
+    const record = buildCaptureRecord({
+      file_id: driveFileId,
+      drive_name: originalFilename ?? existing?.drive_name ?? "",
+      drive_url: driveUrl,
+      thumbnail_url: existing?.thumbnail_url,
+      parent_id: existing?.parent_id,
+      analysis: next,
+      routed_to: existing?.routed_to,
+    });
+    if (existing?.created_iso) record.created_iso = existing.created_iso;
+    await putCapture(record).catch(() => undefined);
+  }
 
   if (state === "idle") return null;
 
@@ -117,8 +143,7 @@ export function CaptureAnalysisPanel({
 
   if (!analysis) return null;
   const showCursor = typed.length < (analysis.comment?.length ?? 0);
-  const badge = DOC_BADGE[analysis.doc_type];
-  const amount = formatAmount(analysis.extracted.amount, analysis.extracted.currency);
+  const amountText = formatAmount(analysis.extracted.amount, analysis.extracted.currency);
 
   async function doRename(): Promise<void> {
     if (!driveFileId || !name.trim()) return;
@@ -151,31 +176,66 @@ export function CaptureAnalysisPanel({
           </p>
         </div>
 
-        {/* Doc type + extracted chips */}
+        {/* Editable chips */}
         <div className="flex flex-wrap items-center gap-1.5">
-          <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${badge.tone}`}>
-            {badge.label}
-          </span>
-          {analysis.extracted.vendor ? (
-            <span className="inline-flex items-center gap-1 rounded-full border border-hairline bg-ink-800/60 px-2 py-0.5 text-[11px] text-ink-100">
-              🏬 {analysis.extracted.vendor}
-            </span>
-          ) : null}
-          {amount ? (
-            <span className="inline-flex items-center gap-1 rounded-full border border-hairline bg-ink-800/60 px-2 py-0.5 text-[11px] font-medium text-ink-100">
-              💴 {amount}
-            </span>
-          ) : null}
-          {analysis.extracted.date_iso ? (
-            <span className="inline-flex items-center gap-1 rounded-full border border-hairline bg-ink-800/60 px-2 py-0.5 text-[11px] text-ink-100">
-              🗓 {analysis.extracted.date_iso}
-            </span>
-          ) : null}
-          {analysis.extracted.topic ? (
-            <span className="inline-flex items-center gap-1 rounded-full border border-hairline bg-ink-800/60 px-2 py-0.5 text-[11px] text-ink-100">
-              ✍️ {analysis.extracted.topic}
-            </span>
-          ) : null}
+          <DocTypeChip
+            value={analysis.doc_type}
+            onChange={(t) => persist({ ...analysis, doc_type: t })}
+          />
+          <EditableChip
+            label="🏬"
+            ariaLabel="店名"
+            value={analysis.extracted.vendor ?? ""}
+            placeholder="店名"
+            onCommit={(v) =>
+              persist({
+                ...analysis,
+                extracted: { ...analysis.extracted, vendor: v || undefined },
+              })
+            }
+          />
+          <EditableChip
+            label="💴"
+            ariaLabel="金額"
+            inputType="number"
+            value={amountText || ""}
+            placeholder="金額"
+            onCommit={(v) => {
+              const n = parseFloat(v.replace(/[^0-9.]/g, ""));
+              persist({
+                ...analysis,
+                extracted: {
+                  ...analysis.extracted,
+                  amount: Number.isFinite(n) ? n : undefined,
+                },
+              });
+            }}
+          />
+          <EditableChip
+            label="🗓"
+            ariaLabel="日付"
+            inputType="date"
+            value={analysis.extracted.date_iso ?? ""}
+            placeholder="YYYY-MM-DD"
+            onCommit={(v) =>
+              persist({
+                ...analysis,
+                extracted: { ...analysis.extracted, date_iso: v || undefined },
+              })
+            }
+          />
+          <EditableChip
+            label="✍️"
+            ariaLabel="トピック"
+            value={analysis.extracted.topic ?? ""}
+            placeholder="メモ見出し"
+            onCommit={(v) =>
+              persist({
+                ...analysis,
+                extracted: { ...analysis.extracted, topic: v || undefined },
+              })
+            }
+          />
           {analysis.suggested_folder ? (
             <span className="inline-flex items-center gap-1 rounded-full border border-hairline bg-ink-900/60 px-2 py-0.5 text-[11px] text-ink-300">
               📁 {analysis.suggested_folder}

@@ -7,6 +7,13 @@ import {
   saveAnalysisToDrive,
   type CaptureAnalysis,
 } from "@/app/lib/capture-analysis";
+import {
+  getRouting,
+  moveDriveFile,
+  targetFolderFor,
+  type DocRouting,
+} from "@/app/lib/doc-routing";
+import { buildCaptureRecord, putCapture } from "@/app/lib/captures-db";
 
 import { SignInButton } from "@/app/components/SignInButton";
 import { Suspense, useCallback, useEffect, useState, type JSX } from "react";
@@ -53,14 +60,15 @@ function HomeContent(): JSX.Element {
   const [folderId, setFolderId] = useState<string | null>(null);
   const [deviceShort, setDeviceShort] = useState("--------");
   const [signedIn, setSignedIn] = useState(false);
-  const [analysisState, setAnalysisState] = useState<
-    "idle" | "loading" | "ready" | "error"
-  >("idle");
-  const [analysis, setAnalysis] = useState<CaptureAnalysis | null>(null);
-  const [analysisError, setAnalysisError] = useState<string | null>(null);
-  const [driveWebViewUrl, setDriveWebViewUrl] = useState<string | null>(null);
-  const [driveFileId, setDriveFileId] = useState<string | null>(null);
-  const [originalFilename, setOriginalFilename] = useState<string | null>(null);
+  type CaptureInflight = {
+    file_id: string;
+    drive_name: string;
+    drive_url: string;
+    state: "loading" | "ready" | "error";
+    analysis: CaptureAnalysis | null;
+    error: string | null;
+  };
+  const [captures, setCaptures] = useState<CaptureInflight[]>([]);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
 
@@ -151,27 +159,65 @@ function HomeContent(): JSX.Element {
         const { fileId } = await uploadBlob(blob, filename, folderId);
 
         setStatusMessage("アップロード完了");
-        setDriveWebViewUrl(`https://drive.google.com/file/d/${fileId}/view`);
-        setDriveFileId(fileId);
-        setOriginalFilename(filename);
-        setAnalysisState("loading");
-        setAnalysis(null);
-        setAnalysisError(null);
+        const driveUrl = `https://drive.google.com/file/d/${fileId}/view`;
+        const newInflight: CaptureInflight = {
+          file_id: fileId,
+          drive_name: filename,
+          drive_url: driveUrl,
+          state: "loading",
+          analysis: null,
+          error: null,
+        };
+        setCaptures((prev) => [newInflight, ...prev].slice(0, 5));
         void (async () => {
           try {
             const result = await analyzeCapture({ image: blob, audio: audioBlob ?? null });
-            setAnalysis(result);
-            setAnalysisState("ready");
             const tok = await getCurrentToken();
+            let routedToParent: string | undefined;
             if (tok) {
               void saveAnalysisToDrive(fileId, tok, result).catch(
                 (err) => console.error("Drive description patch failed", err),
               );
+              try {
+                const routing: DocRouting = await getRouting();
+                const target = targetFolderFor(routing, result.doc_type);
+                if (target && folderId && target !== folderId) {
+                  await moveDriveFile({
+                    file_id: fileId,
+                    add_parent: target,
+                    remove_parent: folderId,
+                    accessToken: tok,
+                  });
+                  routedToParent = target;
+                }
+              } catch (err) {
+                console.error("auto-route failed", err);
+              }
             }
+            void putCapture(
+              buildCaptureRecord({
+                file_id: fileId,
+                drive_name: filename,
+                drive_url: driveUrl,
+                parent_id: routedToParent ?? folderId ?? undefined,
+                analysis: result,
+                routed_to: routedToParent,
+              }),
+            ).catch((err) => console.error("captures IDB write failed", err));
+            setCaptures((prev) =>
+              prev.map((c) =>
+                c.file_id === fileId
+                  ? { ...c, state: "ready", analysis: result }
+                  : c,
+              ),
+            );
           } catch (err) {
             const msg = err instanceof Error ? err.message : String(err);
-            setAnalysisError(msg);
-            setAnalysisState("error");
+            setCaptures((prev) =>
+              prev.map((c) =>
+                c.file_id === fileId ? { ...c, state: "error", error: msg } : c,
+              ),
+            );
           }
         })();
 
@@ -257,15 +303,18 @@ function HomeContent(): JSX.Element {
         ) : null}
       </section>
 
-      <section>
-        <CaptureAnalysisPanel
-          state={analysisState}
-          analysis={analysis}
-          error={analysisError}
-          driveUrl={driveWebViewUrl ?? undefined}
-          driveFileId={driveFileId}
-          originalFilename={originalFilename}
-        />
+      <section className="flex flex-col gap-3">
+        {captures.map((c) => (
+          <CaptureAnalysisPanel
+            key={c.file_id}
+            state={c.state}
+            analysis={c.analysis}
+            error={c.error}
+            driveUrl={c.drive_url}
+            driveFileId={c.file_id}
+            originalFilename={c.drive_name}
+          />
+        ))}
       </section>
 
       <div aria-live="polite" className="sr-only">

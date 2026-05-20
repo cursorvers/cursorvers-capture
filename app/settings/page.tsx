@@ -7,6 +7,7 @@ import {
   type JSX,
   type KeyboardEvent,
 } from "react";
+import { DocRoutingPanel } from "@/app/components/DocRoutingPanel";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Suspense } from "react";
@@ -584,6 +585,14 @@ function SettingsContent(): JSX.Element {
               サインアウト
             </button>
           }
+        />
+      </Group>
+
+      {/* ─────────── 保存先振り分け ─────────── */}
+      <Group title="保存先振り分け">
+        <DocRoutingPanel
+          mainFolderId={folderId}
+          mainFolderLabel={null}
         />
       </Group>
 

@@ -5,10 +5,11 @@ export type IdbStoreName =
   | "uploadSessions"
   | "pendingUploads"
   | "config"
-  | "shareHistory";
+  | "shareHistory"
+  | "captures";
 
 const DB_NAME = "gdrive-uploader";
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 function requireBrowser(): void {
   if (typeof window === "undefined") {
@@ -49,11 +50,38 @@ async function openDb(): Promise<IDBDatabase> {
       }
       if (!db.objectStoreNames.contains("shareHistory")) {
         db.createObjectStore("shareHistory", { keyPath: "id" });
-      }    };
+      }
+      if (!db.objectStoreNames.contains("captures")) {
+        const captures = db.createObjectStore("captures", {
+          keyPath: "file_id",
+        });
+        // Indexes for the Phase 9b search filter. Created here so we
+        // don't need another upgrade-needed bump later.
+        captures.createIndex("by_doc_type", "doc_type", { unique: false });
+        captures.createIndex("by_created", "created_iso", { unique: false });
+        captures.createIndex("by_vendor", "vendor", { unique: false });
+        captures.createIndex("by_date", "date_iso", { unique: false });
+        captures.createIndex("by_amount", "amount", { unique: false });
+      }
+    };
   });
 }
 
 export const db = {
+  async getAll<T>(store: IdbStoreName): Promise<T[]> {
+    const dbi = await openDb();
+    return new Promise((resolve, reject) => {
+      const tx = dbi.transaction(store, "readonly");
+      const os = tx.objectStore(store);
+      const g = os.getAll();
+      g.onerror = (): void => {
+        reject(g.error ?? new Error("db.getAll failed"));
+      };
+      g.onsuccess = (): void => {
+        resolve((g.result as T[]) ?? []);
+      };
+    });
+  },
   async get<T>(store: IdbStoreName, key: IDBValidKey): Promise<T | undefined> {
     const db = await openDb();
     return new Promise((resolve, reject) => {
