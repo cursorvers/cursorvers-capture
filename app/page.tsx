@@ -165,28 +165,7 @@ function HomeContent(): JSX.Element {
           setCaptureAudioBlob(audioBlob);
         }
 
-        const sha1 = "dummy-sha1";
-        const webhookResponse = await fetch("/api/capture-webhook", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${process.env.NEXT_PUBLIC_WEBHOOK_SECRET || "dummy-secret"}`,
-          },
-          body: JSON.stringify({
-            drive_file_id: fileId,
-            filename,
-            mime: "image/jpeg",
-            size: blob.size,
-            shot_at,
-            sha1,
-            chatgpt_user_id: "",
-          }),
-        });
-
-        if (!webhookResponse.ok) {
-          const errorText = await webhookResponse.text();
-          console.error("Webhook dispatch failed:", errorText);
-        }
+        
       } catch (error) {
         console.error("Upload or webhook failed:", error);
         const msg = error instanceof Error ? error.message : String(error);

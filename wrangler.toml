@@ -1,0 +1,13 @@
+name = "cursorvers-capture"
+pages_build_output_dir = "out"
+compatibility_date = "2025-04-01"
+# Pure edge runtime — we never call Node-only APIs from functions/.
+# (No `nodejs_compat` flag, no extra polyfills.)
+
+# Secrets — set via:
+#   wrangler pages secret put COOKIE_SECRET --project-name cursorvers-capture
+#   wrangler pages secret put INVITE_ALLOWLIST --project-name cursorvers-capture
+#   wrangler pages secret put PRO_USERS --project-name cursorvers-capture
+# Plain env (build-time) — set via the Pages dashboard or wrangler.toml [vars]:
+[vars]
+NEXT_PUBLIC_GOOGLE_CLIENT_ID = "622805196021-t98feu6vki9shdeh9ghs3epsfvbmtton.apps.googleusercontent.com"
