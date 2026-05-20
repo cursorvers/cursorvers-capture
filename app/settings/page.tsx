@@ -23,7 +23,54 @@ import {
 
 type ConfigFolderRecord = { key: "folder_id"; value: string };
 
-function SectionCard({
+/**
+ * Drive URL から folder ID を抽出する。受け入れ形式:
+ *   https://drive.google.com/drive/folders/<ID>?usp=...
+ *   https://drive.google.com/drive/u/0/folders/<ID>
+ *   ID 文字列をそのまま貼った場合 (素通し)
+ */
+function extractFolderId(raw: string): string {
+  const trimmed = raw.trim();
+  if (!trimmed) return "";
+  // Try URL parse path
+  try {
+    const u = new URL(trimmed);
+    const match = u.pathname.match(/\/folders\/([A-Za-z0-9_-]{8,})/);
+    if (match && match[1]) return match[1];
+  } catch {
+    // fall through to bare-ID case
+  }
+  // bare ID — keep what looks like an ID (drop query / spaces)
+  const bare = trimmed.split(/[?#\s]/)[0] ?? trimmed;
+  return bare;
+}
+
+function Row({
+  label,
+  value,
+  hint,
+  action,
+}: {
+  label: string;
+  value?: React.ReactNode;
+  hint?: React.ReactNode;
+  action?: React.ReactNode;
+}): JSX.Element {
+  return (
+    <div className="flex items-start justify-between gap-4 py-4">
+      <div className="flex min-w-0 flex-1 flex-col gap-1">
+        <p className="text-[13px] font-medium text-ink-100">{label}</p>
+        {value ? (
+          <p className="break-all text-[12px] text-ink-300">{value}</p>
+        ) : null}
+        {hint ? <p className="text-[11px] text-ink-500">{hint}</p> : null}
+      </div>
+      {action ? <div className="shrink-0">{action}</div> : null}
+    </div>
+  );
+}
+
+function Group({
   title,
   children,
 }: {
@@ -31,11 +78,13 @@ function SectionCard({
   children: React.ReactNode;
 }): JSX.Element {
   return (
-    <section className="flex flex-col gap-3 rounded-2xl border border-hairline bg-ink-800/40 px-5 py-4 shadow-card">
-      <h2 className="font-display text-[13px] font-semibold uppercase tracking-[0.14em] text-ink-300">
+    <section className="flex flex-col">
+      <h2 className="mb-2 px-1 text-[12px] font-medium tracking-tight text-ink-400">
         {title}
       </h2>
-      {children}
+      <div className="divide-y divide-hairline rounded-2xl border border-hairline bg-ink-900/40 px-5">
+        {children}
+      </div>
     </section>
   );
 }
@@ -43,13 +92,14 @@ function SectionCard({
 function SettingsContent(): JSX.Element {
   const router = useRouter();
   const [folderId, setFolderId] = useState<string | null>(null);
-  const [newFolderId, setNewFolderId] = useState("");
+  const [folderInput, setFolderInput] = useState("");
   const [deviceId, setDeviceId] = useState("--------");
   const [deviceShort, setDeviceShort] = useState("--------");
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [shares, setShares] = useState<ShareRecord[]>([]);
   const [aiAssist, setAiAssist] = useState(false);
   const [driveConnected, setDriveConnected] = useState(false);
+  const [helperOpen, setHelperOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -74,7 +124,7 @@ function SettingsContent(): JSX.Element {
       );
       if (!cancelled) {
         setFolderId(existingFolder?.value ?? null);
-        setNewFolderId(existingFolder?.value ?? "");
+        setFolderInput(existingFolder?.value ?? "");
       }
       setDeviceId(getDeviceId());
       setDeviceShort(getDeviceShort());
@@ -83,8 +133,7 @@ function SettingsContent(): JSX.Element {
       const tok = await getCurrentToken();
       if (!cancelled) {
         setDriveConnected(tok !== null);
-        const unified = ocrStatus && audioStatus;
-        setAiAssist(unified);
+        setAiAssist(ocrStatus && audioStatus);
       }
     })();
     return () => {
@@ -123,21 +172,29 @@ function SettingsContent(): JSX.Element {
     }
   };
 
-  const handleSaveFolderId = async () => {
-    const trimmed = newFolderId.trim();
-    if (trimmed) {
+  const handleSelectFolder = async () => {
+    const extracted = extractFolderId(folderInput);
+    if (extracted) {
       await idbPut<ConfigFolderRecord>("config", {
         key: "folder_id",
-        value: trimmed,
+        value: extracted,
       });
-      setFolderId(trimmed);
-      setStatusMessage(`フォルダ ID を「${trimmed}」に更新しました。`);
+      setFolderId(extracted);
+      setFolderInput(extracted); // normalize input to the extracted ID
+      setStatusMessage(`保存先フォルダを「…${extracted.slice(-8)}」に設定しました。`);
     } else {
       await idbDelete("config", "folder_id");
       setFolderId(null);
-      setNewFolderId("");
-      setStatusMessage("フォルダ指定をクリアし、自動（URL/未設定）にしました。");
+      setFolderInput("");
+      setStatusMessage("保存先フォルダの指定を解除しました (自動)。");
     }
+  };
+
+  const handleClearFolder = async () => {
+    await idbDelete("config", "folder_id");
+    setFolderId(null);
+    setFolderInput("");
+    setStatusMessage("保存先フォルダの指定を解除しました (自動)。");
   };
 
   const handleAiToggle = async () => {
@@ -167,21 +224,25 @@ function SettingsContent(): JSX.Element {
       localStorage.clear();
       setStatusMessage("全てのデータを消去しました。");
       setFolderId(null);
-      setNewFolderId("");
+      setFolderInput("");
       router.push("/");
     }
   };
 
-  const folderLabel = folderId && folderId.length > 0 ? folderId : "自動";
+  const folderShort = folderId
+    ? folderId.length > 14
+      ? `…${folderId.slice(-12)}`
+      : folderId
+    : null;
 
   return (
-    <div className="mx-auto flex max-w-md flex-col gap-6 px-5 pb-16 pt-10 sm:pt-14">
-      {/* Header */}
-      <header className="flex flex-col gap-2">
-        <span className="text-[10px] uppercase tracking-[0.2em] text-ink-400">
+    <div className="mx-auto flex max-w-md flex-col gap-9 px-5 pb-20 pt-10 sm:pt-14">
+      {/* Page header */}
+      <header className="flex flex-col gap-2.5">
+        <span className="text-[10px] uppercase tracking-[0.22em] text-ink-400">
           Cursorvers Capture
         </span>
-        <h1 className="font-display text-3xl font-semibold tracking-tightest text-ink-50">
+        <h1 className="font-display text-[34px] font-semibold leading-[1.05] tracking-tightest text-ink-50 sm:text-[40px]">
           設定
         </h1>
       </header>
@@ -189,76 +250,88 @@ function SettingsContent(): JSX.Element {
       {statusMessage ? (
         <div
           aria-live="polite"
-          className="rounded-xl border border-accent/30 bg-accent/10 px-4 py-3 text-[13px] text-accent-soft"
+          className="rounded-xl border border-accent/25 bg-accent/[0.08] px-4 py-3 text-[12.5px] leading-relaxed text-accent-soft"
         >
           {statusMessage}
         </div>
       ) : null}
 
-      {/* Drive 接続 */}
-      <SectionCard title="Drive 接続">
-        <p className="flex items-center gap-2 text-[13px] text-ink-200">
-          <span
-            aria-hidden
-            className={`inline-block h-1.5 w-1.5 rounded-full ${driveConnected ? "bg-emerald-400" : "bg-ink-500"}`}
-          />
-          {driveConnected ? "接続済み" : "未接続"}
-        </p>
-        <button
-          type="button"
-          onClick={() => void handleSignOut()}
-          className="inline-flex h-10 items-center justify-center rounded-xl border border-red-500/30 bg-red-500/10 text-[13px] font-medium text-red-200 transition hover:border-red-500/50 hover:bg-red-500/15"
-        >
-          Google からサインアウト
-        </button>
-      </SectionCard>
-
-      {/* アップロード先フォルダ */}
-      <SectionCard title="アップロード先フォルダ">
+      {/* ─────────── Hero: 保存先フォルダ (most prominent) ─────────── */}
+      <section className="flex flex-col gap-4 rounded-3xl border border-hairline bg-gradient-to-b from-ink-800/60 to-ink-900/40 p-6 shadow-card">
         <div className="flex flex-col gap-1">
-          <p className="text-[12px] text-ink-300">現在の設定</p>
-          <p className="break-all font-mono text-[13px] text-ink-100">
-            {folderLabel}
+          <span className="text-[10px] uppercase tracking-[0.18em] text-ink-400">
+            保存先フォルダの選択
+          </span>
+          <p className="font-display text-[22px] font-semibold tracking-tight text-ink-50">
+            {folderShort ?? "まだ選択されていません"}
+          </p>
+          <p className="text-[12px] text-ink-400">
+            撮影した画像はここで指定した Google Drive
+            のフォルダへ直接保存されます。
           </p>
         </div>
 
         <div className="flex flex-col gap-2">
           <label
-            htmlFor="folder-id-input"
-            className="text-[11px] uppercase tracking-[0.16em] text-ink-400"
+            htmlFor="folder-picker-input"
+            className="text-[11px] font-medium tracking-tight text-ink-300"
           >
-            フォルダ ID
+            Drive の URL または ID を貼り付け
           </label>
+          <input
+            id="folder-picker-input"
+            type="text"
+            value={folderInput}
+            onChange={(e) => setFolderInput(e.target.value)}
+            placeholder="https://drive.google.com/drive/folders/…"
+            spellCheck={false}
+            autoComplete="off"
+            autoCapitalize="off"
+            inputMode="url"
+            className="w-full rounded-2xl border border-hairline bg-ink-950/60 px-4 py-3.5 font-mono text-[12.5px] text-ink-100 placeholder:text-ink-500 focus:border-accent/60 focus:outline-none focus:ring-0"
+            aria-label="Google Drive の保存先フォルダ URL または ID"
+          />
           <div className="flex gap-2">
-            <input
-              id="folder-id-input"
-              type="text"
-              value={newFolderId}
-              onChange={(e) => setNewFolderId(e.target.value)}
-              placeholder="例: 1AbCdEfGhIjKlMn..."
-              className="flex-grow rounded-xl border border-hairline bg-ink-900 px-3 py-2.5 font-mono text-[12px] text-ink-100 placeholder:text-ink-500 focus:border-accent/50 focus:outline-none"
-              aria-label="Google Drive フォルダ ID"
-            />
             <button
               type="button"
-              onClick={() => void handleSaveFolderId()}
-              className="inline-flex h-[42px] items-center justify-center rounded-xl bg-accent-grad px-4 text-[13px] font-semibold text-white shadow-glow transition hover:-translate-y-px"
+              onClick={() => void handleSelectFolder()}
+              disabled={!folderInput.trim()}
+              className="inline-flex h-12 flex-1 items-center justify-center gap-2 rounded-2xl bg-accent-grad px-5 text-[14px] font-semibold tracking-tight text-white shadow-glow transition active:scale-[0.98] hover:-translate-y-px disabled:cursor-not-allowed disabled:bg-none disabled:bg-ink-800 disabled:text-ink-500 disabled:shadow-none disabled:hover:translate-y-0"
             >
-              保存
+              このフォルダを選択
             </button>
+            {folderId ? (
+              <button
+                type="button"
+                onClick={() => void handleClearFolder()}
+                className="inline-flex h-12 items-center justify-center rounded-2xl border border-hairline bg-ink-900/60 px-4 text-[12.5px] text-ink-300 transition hover:border-white/15 hover:bg-ink-900"
+                aria-label="保存先フォルダの指定を解除"
+              >
+                解除
+              </button>
+            ) : null}
           </div>
-          <p className="text-[11px] text-ink-400">
-            空のまま保存で「自動」(URL の <code className="text-ink-300">?folder=</code>{" "}
-            または未設定) に戻ります。
-          </p>
         </div>
 
-        {/* Folder ID 取得手順 hint */}
-        <details className="group rounded-xl border border-hairline bg-ink-900/40 px-4 py-3">
-          <summary className="cursor-pointer text-[12px] font-medium text-ink-200 marker:text-ink-500">
-            Drive folder ID の取得方法
-          </summary>
-          <ol className="mt-3 list-decimal space-y-1.5 pl-5 text-[12px] leading-relaxed text-ink-300">
+        {/* Helper: 取得方法 */}
+        <button
+          type="button"
+          onClick={() => setHelperOpen((v) => !v)}
+          aria-expanded={helperOpen}
+          className="inline-flex items-center gap-1.5 self-start rounded-md text-left text-[11.5px] text-ink-400 transition hover:text-ink-200"
+        >
+          <svg
+            aria-hidden
+            viewBox="0 0 16 16"
+            className={`h-3 w-3 transition-transform ${helperOpen ? "rotate-90" : ""}`}
+            fill="currentColor"
+          >
+            <path d="M6 4l4 4-4 4V4z" />
+          </svg>
+          <span>フォルダ URL の取得方法</span>
+        </button>
+        {helperOpen ? (
+          <ol className="-mt-2 list-decimal space-y-1.5 rounded-xl border border-hairline bg-ink-950/50 px-5 py-3.5 pl-7 text-[12px] leading-relaxed text-ink-300">
             <li>
               <a
                 href="https://drive.google.com/"
@@ -268,127 +341,146 @@ function SettingsContent(): JSX.Element {
               >
                 drive.google.com
               </a>{" "}
-              で保存先にしたい folder を開く (or 新規作成)
+              で保存したい folder を開く (or 新規作成)
             </li>
             <li>
-              ブラウザのアドレスバー URL が{" "}
-              <code className="break-all rounded bg-ink-800 px-1.5 py-0.5 text-[11px] text-ink-200">
-                https://drive.google.com/drive/folders/<span className="text-accent-soft">1AbCd...</span>
+              ブラウザのアドレスバーの URL{" "}
+              <code className="rounded bg-ink-800 px-1.5 py-0.5 text-[10.5px] text-ink-200">
+                https://drive.google.com/drive/folders/…
               </code>{" "}
-              の形になっている
+              を丸ごと copy
             </li>
+            <li>上の入力欄に貼り付け → 「このフォルダを選択」</li>
             <li>
-              末尾の{" "}
-              <span className="text-accent-soft">1AbCd...</span>{" "}
-              部分 (英数字 25-33 桁) を copy
+              ID 部分は自動で抽出されます (URL でも ID でも OK)。
             </li>
-            <li>上の「フォルダ ID」欄に貼り付けて「保存」</li>
           </ol>
-          <p className="mt-3 text-[11px] text-ink-400">
-            ※ アクセス権は <code className="text-ink-300">drive.file</code>{" "}
-            scope (本アプリが新規作成した file のみ) のため、folder
-            自体の中身は他のアプリから見えません。
-          </p>
-        </details>
-      </SectionCard>
+        ) : null}
+      </section>
 
-      {/* AI 補助 */}
-      <SectionCard title="AI 補助 (OCR・音声)">
-        <div className="flex items-center justify-between">
-          <span className="text-[13px] text-ink-100">
-            {aiAssist ? "有効" : "無効"}
-          </span>
-          <button
-            type="button"
-            role="switch"
-            aria-checked={aiAssist}
-            onClick={() => void handleAiToggle()}
-            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-              aiAssist ? "bg-accent" : "bg-ink-700"
-            }`}
-          >
-            <span className="sr-only">AI 補助のオン・オフ</span>
-            <span
-              className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${
-                aiAssist ? "translate-x-6" : "translate-x-1"
+      {/* ─────────── Drive 接続 ─────────── */}
+      <Group title="アカウント">
+        <Row
+          label="Google Drive"
+          value={driveConnected ? "接続済み" : "未接続"}
+          action={
+            <button
+              type="button"
+              onClick={() => void handleSignOut()}
+              className="inline-flex h-9 items-center rounded-full border border-hairline px-3 text-[12px] text-ink-300 transition hover:border-red-400/50 hover:text-red-300"
+            >
+              サインアウト
+            </button>
+          }
+        />
+      </Group>
+
+      {/* ─────────── 機能 ─────────── */}
+      <Group title="機能">
+        <Row
+          label="AI 補助 (OCR・音声)"
+          hint="ON にすると OCR と音声メモ (長押し録音) の両方が有効になります。Codex へ一時送信されますが、保存はされません。"
+          action={
+            <button
+              type="button"
+              role="switch"
+              aria-checked={aiAssist}
+              onClick={() => void handleAiToggle()}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                aiAssist ? "bg-accent" : "bg-ink-700"
               }`}
-            />
-          </button>
-        </div>
-        <p className="text-[11px] leading-relaxed text-ink-400">
-          ON にすると OCR と音声メモ (長押し録音) の両方が有効になります。
-          Codex へ一時送信されますが、保存はされません。
-        </p>
-      </SectionCard>
+            >
+              <span className="sr-only">AI 補助のオン・オフ</span>
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${
+                  aiAssist ? "translate-x-6" : "translate-x-1"
+                }`}
+              />
+            </button>
+          }
+        />
+      </Group>
 
-      {/* 詳細 */}
-      <SectionCard title="詳細">
-        <div className="flex flex-col gap-1 text-[12px]">
-          <p className="text-ink-400">
-            デバイス ID:{" "}
-            <span className="break-all font-mono text-ink-200">{deviceId}</span>
-          </p>
-          <p className="text-ink-400">
-            ショート:{" "}
-            <span className="font-mono text-ink-200">{deviceShort}</span>
-          </p>
-        </div>
-
-        <div className="flex flex-col gap-2">
-          <h3 className="text-[11px] uppercase tracking-[0.16em] text-ink-400">
-            最近の共有
-          </h3>
-          {shares.length === 0 ? (
-            <p className="text-[12px] text-ink-500">共有履歴はありません。</p>
-          ) : (
-            <div className="max-h-48 overflow-auto text-[12px]">
-              {shares.map((share) => (
-                <div
-                  key={share.id}
-                  className="flex flex-wrap items-center justify-between gap-2 border-b border-hairline py-2 last:border-b-0"
+      {/* ─────────── 詳細 ─────────── */}
+      <Group title="詳細">
+        <Row
+          label="デバイス ID"
+          value={
+            <span className="font-mono">
+              {deviceId}{" "}
+              <span className="text-ink-500">({deviceShort})</span>
+            </span>
+          }
+        />
+        <Row
+          label="最近の共有"
+          hint={
+            shares.length === 0
+              ? "共有履歴はありません。"
+              : `${shares.length} 件`
+          }
+        />
+        {shares.length > 0 ? (
+          <div className="max-h-48 overflow-auto py-3 text-[12px]">
+            {shares.map((share) => (
+              <div
+                key={share.id}
+                className="flex flex-wrap items-center justify-between gap-2 border-b border-hairline py-2 last:border-b-0"
+              >
+                <span className="break-all text-ink-200">
+                  {share.filename}
+                </span>
+                <button
+                  type="button"
+                  onClick={() =>
+                    void handleRevokeShare(
+                      share.driveFileId,
+                      share.permissionId,
+                    )
+                  }
+                  className="shrink-0 text-[12px] text-red-300 transition hover:text-red-200"
                 >
-                  <span className="break-all text-ink-200">{share.filename}</span>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      void handleRevokeShare(share.driveFileId, share.permissionId)
-                    }
-                    className="shrink-0 text-[12px] text-red-300 transition hover:text-red-200"
-                  >
-                    取消
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
+                  取消
+                </button>
+              </div>
+            ))}
+          </div>
+        ) : null}
+        <Row
+          label="全てのローカルデータを消去"
+          hint="IndexedDB と LocalStorage を初期化します。"
+          action={
+            <button
+              type="button"
+              onClick={() => void handleClearAllData()}
+              className="inline-flex h-9 items-center rounded-full border border-hairline px-3 text-[12px] text-ink-300 transition hover:border-red-400/50 hover:text-red-300"
+            >
+              消去
+            </button>
+          }
+        />
+      </Group>
+
+      {/* Footer nav */}
+      <nav className="flex flex-col items-center gap-2 pt-2">
+        <div className="flex items-center gap-4 text-[12.5px]">
+          <Link
+            href="/insights"
+            className="text-accent-soft underline-offset-2 hover:underline"
+          >
+            振り返り
+          </Link>
+          <span aria-hidden className="h-3 w-px bg-white/10" />
+          <Link
+            href="/advisory"
+            className="text-accent-soft underline-offset-2 hover:underline"
+          >
+            Advisory
+          </Link>
         </div>
-
-        <button
-          type="button"
-          onClick={() => void handleClearAllData()}
-          className="inline-flex h-10 items-center justify-center rounded-xl border border-hairline bg-ink-900/60 text-[12px] font-medium text-ink-200 transition hover:border-white/20 hover:bg-ink-900"
-        >
-          全てのローカルデータを消去
-        </button>
-      </SectionCard>
-
-      {/* Nav */}
-      <nav className="flex flex-col items-center gap-2.5 pt-2">
-        <Link
-          href="/insights"
-          className="text-[13px] text-accent-soft underline-offset-2 hover:underline"
-        >
-          振り返り / insights
-        </Link>
-        <Link
-          href="/advisory"
-          className="text-[13px] text-accent-soft underline-offset-2 hover:underline"
-        >
-          Advisory
-        </Link>
         <Link
           href="/"
-          className="mt-2 text-[12px] text-ink-400 transition hover:text-ink-200"
+          className="mt-3 text-[12px] text-ink-400 transition hover:text-ink-200"
         >
           ← ホーム
         </Link>
@@ -401,9 +493,10 @@ export default function Settings(): JSX.Element {
   return (
     <Suspense
       fallback={
-        <div className="mx-auto flex max-w-md flex-col gap-4 px-5 pt-10">
-          <div className="h-6 w-24 animate-pulse rounded-full bg-ink-800" />
-          <div className="h-9 w-40 animate-pulse rounded-lg bg-ink-800" />
+        <div className="mx-auto flex max-w-md flex-col gap-6 px-5 pt-10">
+          <div className="h-6 w-32 animate-pulse rounded-full bg-ink-800" />
+          <div className="h-10 w-48 animate-pulse rounded-lg bg-ink-800" />
+          <div className="h-40 w-full animate-pulse rounded-3xl bg-ink-800" />
           <div className="h-24 w-full animate-pulse rounded-2xl bg-ink-800" />
           <div className="h-24 w-full animate-pulse rounded-2xl bg-ink-800" />
         </div>
