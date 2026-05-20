@@ -4,27 +4,28 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 function BrandMark(): JSX.Element {
-  // Capture motif: 4 viewfinder corner brackets (orange) + shutter dot (orange).
-  // Cursorvers 本体ロゴ (cursor + orbit) とは別の sub-brand mark。
+  // Capture motif: 領収書カード 1 枚 (giza ギザ底 + バー線) + AI スパーク。
+  // app icon (document fan) の小サイズ版。
   return (
     <svg
       viewBox="0 0 32 32"
       aria-hidden
       className="h-5 w-5 shrink-0"
     >
-      <g
-        stroke="#fb923c"
-        strokeWidth="2"
-        fill="none"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      >
-        <path d="M 6 11 L 6 6 L 11 6"/>
-        <path d="M 21 6 L 26 6 L 26 11"/>
-        <path d="M 6 21 L 6 26 L 11 26"/>
-        <path d="M 21 26 L 26 26 L 26 21"/>
-      </g>
-      <circle cx="16" cy="16" r="3.5" fill="#f97316"/>
+      {/* Receipt card with jagged bottom edge */}
+      <path
+        d="M 5 7 H 22 V 24 L 20.2 22.8 L 18.5 24 L 16.8 22.8 L 15 24 L 13.2 22.8 L 11.5 24 L 9.8 22.8 L 8 24 L 6 22.8 L 5 24 Z"
+        fill="#dde6f8"
+      />
+      <rect x="8" y="10" width="9" height="1.5" rx="0.7" fill="#0a1a4a"/>
+      <rect x="8" y="13.5" width="11" height="1.2" rx="0.6" fill="#0a1a4a" opacity="0.5"/>
+      <rect x="8" y="16.5" width="8" height="1.2" rx="0.6" fill="#0a1a4a" opacity="0.5"/>
+      <rect x="8" y="19.5" width="5" height="1.8" rx="0.8" fill="#fb923c"/>
+      {/* AI sparkle, top-right */}
+      <path
+        d="M 25.5 6 L 26.5 8.5 L 29 9.5 L 26.5 10.5 L 25.5 13 L 24.5 10.5 L 22 9.5 L 24.5 8.5 Z"
+        fill="#fb923c"
+      />
     </svg>
   );
 }
