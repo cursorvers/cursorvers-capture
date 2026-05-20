@@ -353,6 +353,20 @@ function SettingsContent(): JSX.Element {
     router.push("/");
   };
 
+  const handleReauthorize = async (): Promise<void> => {
+    // Force GIS to re-prompt for consent so the new drive.metadata.readonly
+    // scope is granted. signIn() under the hood calls
+    // tokenClient.requestAccessToken({ prompt: "consent" }) which always
+    // shows the chooser; if scope was added, Google asks for the new grant.
+    try {
+      const mod = await import("@/app/lib/gis");
+      await mod.signIn();
+      window.location.reload();
+    } catch (e) {
+      console.error("reauthorize failed", e);
+    }
+  };
+
   const handleClearAllData = async () => {
     if (
       window.confirm(
@@ -585,6 +599,19 @@ function SettingsContent(): JSX.Element {
               className="inline-flex h-9 items-center rounded-full border border-hairline px-3 text-[12px] text-ink-300 transition hover:border-red-400/50 hover:text-red-300"
             >
               サインアウト
+            </button>
+          }
+        />
+        <Row
+          label="権限を更新"
+          hint="既存写真の表示など、新しい権限を付与するために Google サインインを再実行します"
+          action={
+            <button
+              type="button"
+              onClick={() => void handleReauthorize()}
+              className="inline-flex h-9 items-center rounded-full border border-accent/40 bg-accent/10 px-3 text-[12px] font-medium text-accent-soft transition hover:bg-accent/20"
+            >
+              再認可
             </button>
           }
         />

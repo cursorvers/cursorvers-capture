@@ -110,7 +110,7 @@ async function requestToken(prompt: "consent" | ""): Promise<{
   return new Promise((resolve, reject) => {
     const client = oauth2.initTokenClient({
       client_id: clientId,
-      scope: "https://www.googleapis.com/auth/drive.file",
+      scope: "https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/drive.metadata.readonly",
       callback: (resp) => {
         if (resp.error) {
           const detail = resp.error_description
@@ -251,7 +251,7 @@ export function prepareTokenClient(
   const clientId = getClientId();
   return oauth2.initTokenClient({
     client_id: clientId,
-    scope: "https://www.googleapis.com/auth/drive.file",
+    scope: "https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/drive.metadata.readonly",
     callback: (resp) => {
       if (resp.error) {
         const detail = resp.error_description

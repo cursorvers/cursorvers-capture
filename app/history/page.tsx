@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState, type JSX } from "react";
 import Link from "next/link";
 import { idbGet } from "@/app/lib/idb";
 import { getCurrentToken } from "@/app/lib/gis";
-import { listFolderFiles } from "@/app/lib/drive-history";
+import { listFolderFiles, type HistoryEntry } from "@/app/lib/drive-history";
 import {
   buildCaptureRecord,
   listAllCaptures,
@@ -15,10 +15,8 @@ import { parseDescription } from "@/app/lib/capture-analysis";
 import { getRouting } from "@/app/lib/doc-routing";
 import { HistoryGrid } from "@/app/components/HistoryGrid";
 import { CaptureDetailSheet } from "@/app/components/CaptureDetailSheet";
-import type { HistoryEntry } from "@/app/lib/drive-history";
 
 type ConfigFolderRecord = { key: "folder_id"; value: string };
-
 type DocType = CaptureRecord["doc_type"];
 
 const DOC_FILTERS: { type: DocType; label: string; icon: string }[] = [
@@ -55,77 +53,45 @@ function recordToEntry(c: CaptureRecord): HistoryEntry {
   };
 }
 
-async function backfillFromFolders(
-  accessToken: string,
-  folders: string[],
-  existing: Set<string>,
-): Promise<CaptureRecord[]> {
-  const added: CaptureRecord[] = [];
-  for (const folder of folders) {
-    if (!folder) continue;
-    try {
-      const list = await listFolderFiles(folder, accessToken, 100);
-      for (const entry of list) {
-        if (existing.has(entry.id)) continue;
-        const a = entry.analysis ?? parseDescription(entry.description);
-        if (!a) continue; // unanalyzed file — skip backfill
-        const record = buildCaptureRecord({
-          file_id: entry.id,
-          drive_name: entry.name,
-          drive_url: entry.webViewLink,
-          thumbnail_url: entry.thumbnailLink,
-          parent_id: folder,
-          analysis: a,
-          routed_to: folder, // best guess
-        });
-        // Preserve original createdTime for sort fidelity.
-        record.created_iso = entry.createdTime || record.created_iso;
-        await putCapture(record);
-        added.push(record);
-        existing.add(entry.id);
-      }
-    } catch (err) {
-      console.warn(`backfill folder ${folder} failed`, err);
-    }
-  }
-  return added;
-}
-
 export default function HistoryPage(): JSX.Element {
-  const [records, setRecords] = useState<CaptureRecord[]>([]);
+  const [entries, setEntries] = useState<HistoryEntry[]>([]);
   const [loading, setLoading] = useState(true);
-  const [backfilling, setBackfilling] = useState(false);
+  const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [folderMissing, setFolderMissing] = useState(false);
   const [signedOut, setSignedOut] = useState(false);
   const [selected, setSelected] = useState<HistoryEntry | null>(null);
-
   const [query, setQuery] = useState("");
   const [activeFilters, setActiveFilters] = useState<Set<DocType>>(new Set());
+  const [showUnanalyzed, setShowUnanalyzed] = useState(true);
 
   const loadAll = useCallback(async () => {
     setError(null);
     setFolderMissing(false);
     setSignedOut(false);
 
-    // 1. Read from IDB first → instant render.
+    // 1. Render from IDB instantly (analyzed captures only).
     const local = await listAllCaptures().catch(() => []);
-    setRecords(local);
+    const localEntries = local
+      .slice()
+      .sort((a, b) => (b.created_iso || "").localeCompare(a.created_iso || ""))
+      .map(recordToEntry);
+    setEntries(localEntries);
     setLoading(false);
 
-    // 2. Background backfill from Drive folders we know about.
-    setBackfilling(true);
+    // 2. Sync Drive folder contents — now sees ALL files (drive.metadata.readonly).
+    setSyncing(true);
     try {
       const folderRec = await idbGet<ConfigFolderRecord>("config", "folder_id");
       if (!folderRec?.value) {
         setFolderMissing(true);
-        setBackfilling(false);
+        setSyncing(false);
         return;
       }
       const tok = await getCurrentToken();
       if (!tok) {
         setSignedOut(true);
-        setBackfilling(false);
+        setSyncing(false);
         return;
       }
 
@@ -138,17 +104,60 @@ export default function HistoryPage(): JSX.Element {
         routing.other,
       ].filter((s): s is string => !!s);
 
-      const existing = new Set(local.map((r) => r.file_id));
-      const added = await backfillFromFolders(tok, folders, existing);
-      if (added.length > 0) {
-        const fresh = await listAllCaptures();
-        setRecords(fresh);
+      // Pull every file from every configured folder; dedupe by id.
+      const seen = new Set<string>();
+      const all: HistoryEntry[] = [];
+      for (const f of folders) {
+        try {
+          const list = await listFolderFiles(f, tok, 200);
+          for (const e of list) {
+            if (seen.has(e.id)) continue;
+            seen.add(e.id);
+            all.push(e);
+          }
+        } catch (err) {
+          console.warn(`list folder ${f} failed`, err);
+        }
+      }
+
+      // Merge: prefer IDB analysis (richer) over Drive description parse,
+      // but fall back to whatever the Drive description carries, and last
+      // a null analysis = "未解析".
+      const idbByFileId = new Map(local.map((r) => [r.file_id, r]));
+      const merged = all
+        .map<HistoryEntry>((e) => {
+          const idbRec = idbByFileId.get(e.id);
+          if (idbRec) {
+            return { ...e, analysis: recordToEntry(idbRec).analysis };
+          }
+          const fromDesc = parseDescription(e.description);
+          return { ...e, analysis: fromDesc };
+        })
+        .sort((a, b) => (b.createdTime || "").localeCompare(a.createdTime || ""));
+
+      setEntries(merged);
+
+      // Backfill IDB with Drive-side analysis we just discovered.
+      for (const e of all) {
+        if (idbByFileId.has(e.id)) continue;
+        const a = parseDescription(e.description);
+        if (!a) continue;
+        const record = buildCaptureRecord({
+          file_id: e.id,
+          drive_name: e.name,
+          drive_url: e.webViewLink,
+          thumbnail_url: e.thumbnailLink,
+          parent_id: undefined,
+          analysis: a,
+        });
+        if (e.createdTime) record.created_iso = e.createdTime;
+        await putCapture(record).catch(() => undefined);
       }
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       setError(msg);
     } finally {
-      setBackfilling(false);
+      setSyncing(false);
     }
   }, []);
 
@@ -158,30 +167,32 @@ export default function HistoryPage(): JSX.Element {
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return records
-      .filter((c) => {
-        if (activeFilters.size > 0 && !activeFilters.has(c.doc_type)) {
-          return false;
-        }
-        if (q) {
-          const hay = [
-            c.comment,
-            c.vendor,
-            c.drive_name,
-            c.topic,
-            c.suggested_filename,
-            c.suggested_folder,
-            ...(c.items ?? []),
-          ]
-            .filter(Boolean)
-            .join(" ")
-            .toLowerCase();
-          if (!hay.includes(q)) return false;
-        }
-        return true;
-      })
-      .sort((a, b) => (b.created_iso || "").localeCompare(a.created_iso || ""));
-  }, [records, query, activeFilters]);
+    return entries.filter((e) => {
+      const a = e.analysis;
+      const isAnalyzed = a !== null;
+      if (!showUnanalyzed && !isAnalyzed) return false;
+      if (activeFilters.size > 0) {
+        if (!a) return false;
+        if (!activeFilters.has(a.doc_type)) return false;
+      }
+      if (q) {
+        const hay = [
+          a?.comment,
+          a?.extracted?.vendor,
+          e.name,
+          a?.extracted?.topic,
+          a?.suggested_filename,
+          a?.suggested_folder,
+          ...(a?.extracted?.items ?? []),
+        ]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    });
+  }, [entries, query, activeFilters, showUnanalyzed]);
 
   function toggleFilter(t: DocType): void {
     setActiveFilters((prev) => {
@@ -191,6 +202,9 @@ export default function HistoryPage(): JSX.Element {
       return next;
     });
   }
+
+  const unanalyzedCount = entries.filter((e) => !e.analysis).length;
+  const analyzedCount = entries.length - unanalyzedCount;
 
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-4 px-5 pt-6 pb-12">
@@ -206,10 +220,10 @@ export default function HistoryPage(): JSX.Element {
         <button
           type="button"
           onClick={() => void loadAll()}
-          disabled={loading || backfilling}
+          disabled={loading || syncing}
           className="inline-flex h-9 items-center gap-1.5 rounded-full border border-hairline bg-ink-800/60 px-3 text-[12px] font-medium text-ink-200 transition hover:border-white/20 hover:bg-ink-800 disabled:opacity-50"
         >
-          {backfilling ? "同期中…" : "更新"}
+          {syncing ? "同期中…" : "更新"}
         </button>
       </div>
 
@@ -269,6 +283,21 @@ export default function HistoryPage(): JSX.Element {
               </button>
             );
           })}
+          {unanalyzedCount > 0 ? (
+            <button
+              type="button"
+              onClick={() => setShowUnanalyzed((v) => !v)}
+              className={`inline-flex h-7 items-center gap-1 rounded-full border px-2.5 text-[11px] font-medium transition ${
+                showUnanalyzed
+                  ? "border-hairline bg-ink-800/40 text-ink-300 hover:bg-ink-800/60"
+                  : "border-amber-400/40 bg-amber-400/10 text-amber-200"
+              }`}
+              title={showUnanalyzed ? "未解析を隠す" : "未解析を表示"}
+            >
+              <span>🔘</span>
+              <span>未解析 {unanalyzedCount}</span>
+            </button>
+          ) : null}
           {activeFilters.size > 0 || query ? (
             <button
               type="button"
@@ -282,9 +311,9 @@ export default function HistoryPage(): JSX.Element {
             </button>
           ) : null}
         </div>
-        {query || activeFilters.size > 0 ? (
+        {query || activeFilters.size > 0 || !showUnanalyzed ? (
           <p className="text-[10px] text-ink-500">
-            {filtered.length} / {records.length} 件表示
+            {filtered.length} / {entries.length} 件表示 (解析済 {analyzedCount}、未解析 {unanalyzedCount})
           </p>
         ) : null}
       </div>
@@ -292,10 +321,15 @@ export default function HistoryPage(): JSX.Element {
       {error ? (
         <div className="rounded-2xl border border-red-500/30 bg-red-500/5 p-4 text-[13px] text-red-200">
           {error}
+          {error.toLowerCase().includes("403") || error.toLowerCase().includes("insufficient") ? (
+            <p className="mt-2 text-[11px] text-red-300/70">
+              新しい権限 (drive.metadata.readonly) が必要です。設定 → 再認可 で許可してください。
+            </p>
+          ) : null}
         </div>
       ) : null}
 
-      {loading && records.length === 0 ? (
+      {loading && entries.length === 0 ? (
         <ul className="flex flex-col gap-3">
           {Array.from({ length: 4 }).map((_, i) => (
             <li
@@ -305,10 +339,7 @@ export default function HistoryPage(): JSX.Element {
           ))}
         </ul>
       ) : (
-        <HistoryGrid
-          entries={filtered.map(recordToEntry)}
-          onSelect={setSelected}
-        />
+        <HistoryGrid entries={filtered} onSelect={setSelected} />
       )}
 
       <CaptureDetailSheet

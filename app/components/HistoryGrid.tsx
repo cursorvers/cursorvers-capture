@@ -75,6 +75,11 @@ export function HistoryGrid({ entries, onSelect }: Props): JSX.Element {
                 <span className="absolute bottom-1 right-1 inline-flex h-5 w-5 items-center justify-center rounded-full bg-ink-900/80 text-[11px]">
                   {icon}
                 </span>
+                {!a ? (
+                  <span className="absolute left-1 top-1 inline-flex h-5 items-center rounded-full bg-ink-950/80 px-1.5 text-[9px] font-medium uppercase tracking-[0.12em] text-ink-300">
+                    未解析
+                  </span>
+                ) : null}
               </div>
               <div className="flex min-w-0 flex-1 flex-col gap-1">
                 <p className="line-clamp-2 text-[13px] leading-snug text-ink-100">
