@@ -1,36 +1,45 @@
-<svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Cursorvers Capture">
+<svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Cursorvers">
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#0a1a4a"/>
+    <linearGradient id="cv-bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#0c1d52"/>
       <stop offset="100%" stop-color="#050d29"/>
     </linearGradient>
-    <radialGradient id="aperture-glow" cx="50%" cy="50%" r="38%">
-      <stop offset="0%" stop-color="#fb923c" stop-opacity="0.45"/>
-      <stop offset="55%" stop-color="#fb923c" stop-opacity="0.10"/>
-      <stop offset="100%" stop-color="#fb923c" stop-opacity="0"/>
-    </radialGradient>
-    <linearGradient id="dot" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#fb923c"/>
-      <stop offset="60%" stop-color="#f97316"/>
-      <stop offset="100%" stop-color="#ea580c"/>
+    <linearGradient id="cv-mark" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#dde6f8"/>
+      <stop offset="100%" stop-color="#7a93cf"/>
     </linearGradient>
+    <radialGradient id="cv-star" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="1"/>
+      <stop offset="55%" stop-color="#ffffff" stop-opacity="0.4"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
   </defs>
 
-  <!-- canvas: deep navy with subtle vertical fade -->
-  <rect width="512" height="512" fill="url(#bg)"/>
+  <!-- Navy canvas with subtle vertical fade -->
+  <rect width="512" height="512" fill="url(#cv-bg)"/>
 
-  <!-- soft radial glow behind aperture -->
-  <rect width="512" height="512" fill="url(#aperture-glow)"/>
+  <!-- Orbit ring (saturn-style) -->
+  <ellipse
+    cx="256" cy="290"
+    rx="170" ry="55"
+    fill="none"
+    stroke="url(#cv-mark)"
+    stroke-width="8"
+    stroke-linecap="round"
+    transform="rotate(-18 256 290)"
+  />
 
-  <!-- viewfinder corner brackets (4 corners) -->
-  <g stroke="#fb923c" stroke-width="16" fill="none" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M 132 188 L 132 132 L 188 132"/>
-    <path d="M 324 132 L 380 132 L 380 188"/>
-    <path d="M 132 324 L 132 380 L 188 380"/>
-    <path d="M 324 380 L 380 380 L 380 324"/>
+  <!-- Cursor arrow pointing up-right -->
+  <g fill="url(#cv-mark)" stroke="url(#cv-mark)" stroke-width="6" stroke-linejoin="round">
+    <path d="M220 168 L348 252 L286 262 L274 332 Z"/>
   </g>
 
-  <!-- capture dot — orange disc with subtle inner highlight -->
-  <circle cx="256" cy="256" r="56" fill="url(#dot)"/>
-  <circle cx="256" cy="240" r="20" fill="#ffffff" opacity="0.18"/>
+  <!-- Star sparkle at the cursor head (4-point + glow) -->
+  <g>
+    <circle cx="220" cy="168" r="36" fill="url(#cv-star)"/>
+    <path
+      d="M220 142 L226 162 L246 168 L226 174 L220 194 L214 174 L194 168 L214 162 Z"
+      fill="#ffffff"
+    />
+  </g>
 </svg>

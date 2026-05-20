@@ -3,6 +3,34 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
+function BrandMark(): JSX.Element {
+  return (
+    <svg
+      viewBox="0 0 64 64"
+      aria-hidden
+      className="h-5 w-5 shrink-0"
+    >
+      <ellipse
+        cx="32" cy="36" rx="22" ry="7"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="3"
+        strokeLinecap="round"
+        transform="rotate(-18 32 36)"
+        opacity="0.7"
+      />
+      <path
+        d="M27 18 L44 30 L36 31 L34 41 Z"
+        fill="currentColor"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinejoin="round"
+      />
+      <circle cx="27" cy="18" r="2.5" fill="#fff"/>
+    </svg>
+  );
+}
+
 function BackArrow(): JSX.Element {
   return (
     <svg
@@ -52,11 +80,10 @@ export function Header() {
             href="/"
             className="group inline-flex items-center gap-2 text-[15px] font-semibold tracking-tightest text-ink-50 transition hover:text-white"
           >
-            <span
-              aria-hidden
-              className="inline-block h-2 w-2 rounded-full bg-accent shadow-glow"
-            />
-            Cursorvers Capture
+            <BrandMark />
+            <span>Cursorvers</span>
+            <span aria-hidden className="text-ink-400">·</span>
+            <span className="font-medium text-ink-200">Capture</span>
           </Link>
         ) : (
           <Link
