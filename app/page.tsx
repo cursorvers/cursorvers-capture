@@ -4,6 +4,7 @@ import dynamic from "next/dynamic";
 import { CameraButton } from "@/app/components/CameraButton";
 import { SignInButton } from "@/app/components/SignInButton";
 import { Suspense, useCallback, useEffect, useState, type JSX } from "react";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { idbGet, idbPut } from "@/app/lib/idb";
 import { getDeviceShort } from "@/app/lib/device";
@@ -234,11 +235,19 @@ function HomeContent(): JSX.Element {
           value={deviceShort}
           tone={signedIn ? "ok" : "neutral"}
         />
-        <StatusPill
-          label="Folder"
-          value={folderId ? `…${folderId.slice(-6)}` : "未設定"}
-          tone={folderId ? "ok" : "warn"}
-        />
+        <Link
+          href="/settings"
+          aria-label={
+            folderId ? "アップロード先フォルダの設定を変更" : "アップロード先フォルダを設定"
+          }
+          className="group rounded-xl transition focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+        >
+          <StatusPill
+            label="Folder"
+            value={folderId ? `…${folderId.slice(-6)}` : "未設定 →"}
+            tone={folderId ? "ok" : "warn"}
+          />
+        </Link>
       </section>
 
       {/* Sign-in + Capture stack */}

@@ -1,6 +1,23 @@
 /** @type {import('next').NextConfig} */
-const csp =
-  "default-src 'self'; connect-src 'self' https://*.googleapis.com https://accounts.google.com; img-src 'self' blob: data:; script-src 'self' https://accounts.google.com; style-src 'self' 'unsafe-inline'";
+// Google Identity Services (popup flow) needs:
+//   - script-src:  https://accounts.google.com + 'unsafe-eval'
+//     (GIS internals eval(); without it the button silently fails)
+//   - connect-src: https://*.googleapis.com (Drive/userinfo) +
+//                  https://accounts.google.com (token endpoints) +
+//                  https://oauth2.googleapis.com (token exchange)
+//   - frame-src:   https://accounts.google.com (GIS internal iframe)
+//   - form-action: https://accounts.google.com (OAuth consent submit)
+//   - img-src:     https://*.googleusercontent.com (user avatar in consent)
+const csp = [
+  "default-src 'self'",
+  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://accounts.google.com",
+  "connect-src 'self' https://*.googleapis.com https://accounts.google.com https://oauth2.googleapis.com",
+  "img-src 'self' blob: data: https://*.googleusercontent.com",
+  "style-src 'self' 'unsafe-inline'",
+  "frame-src 'self' https://accounts.google.com",
+  "form-action 'self' https://accounts.google.com",
+  "base-uri 'self'",
+].join("; ");
 
 const securityHeaders = [
   {
