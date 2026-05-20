@@ -1,28 +1,55 @@
 "use client";
 
-import { useState, type JSX } from "react";
-import type { CaptureAnalysis } from "@/app/lib/capture-analysis";
+import { useEffect, useRef, useState, type JSX } from "react";
+import type { CodexReply } from "@/app/lib/capture-analysis";
 
 type Props = {
   state: "idle" | "loading" | "ready" | "error";
-  analysis: CaptureAnalysis | null;
+  analysis: CodexReply | null;
   error?: string | null;
   driveUrl?: string;
 };
 
-const CATEGORY_LABEL: Record<CaptureAnalysis["category"], string> = {
-  medical: "医療",
-  document: "文書",
-  scene: "シーン",
-  other: "その他",
-};
+// Codex avatar — soft glowing orb + ":)" mark. SVG so it scales crisply
+// and tints with the accent color.
+function CodexAvatar(): JSX.Element {
+  return (
+    <span className="relative inline-flex h-9 w-9 shrink-0 items-center justify-center">
+      <span className="absolute inset-0 rounded-full bg-accent/30 blur-md" />
+      <span className="absolute inset-0 rounded-full border border-accent/40 bg-gradient-to-br from-accent/40 to-accent/10" />
+      <span className="relative text-[11px] font-semibold tracking-tight text-ink-50">
+        cdx
+      </span>
+    </span>
+  );
+}
 
-const CATEGORY_TONE: Record<CaptureAnalysis["category"], string> = {
-  medical: "border-accent/40 bg-accent/10 text-accent-soft",
-  document: "border-sky-400/40 bg-sky-400/10 text-sky-300",
-  scene: "border-emerald-400/40 bg-emerald-400/10 text-emerald-300",
-  other: "border-hairline bg-ink-800/60 text-ink-300",
-};
+function useTypewriter(text: string, speed = 18): string {
+  const [out, setOut] = useState("");
+  const idx = useRef(0);
+  useEffect(() => {
+    idx.current = 0;
+    setOut("");
+    if (!text) return;
+    const iv = setInterval(() => {
+      idx.current += 1;
+      setOut(text.slice(0, idx.current));
+      if (idx.current >= text.length) clearInterval(iv);
+    }, speed);
+    return () => clearInterval(iv);
+  }, [text, speed]);
+  return out;
+}
+
+function ThinkingDots(): JSX.Element {
+  return (
+    <span className="inline-flex items-center gap-1">
+      <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-ink-400 [animation-delay:0ms]" />
+      <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-ink-400 [animation-delay:120ms]" />
+      <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-ink-400 [animation-delay:240ms]" />
+    </span>
+  );
+}
 
 export function CaptureAnalysisPanel({
   state,
@@ -30,26 +57,16 @@ export function CaptureAnalysisPanel({
   error,
   driveUrl,
 }: Props): JSX.Element | null {
-  const [showOcr, setShowOcr] = useState(false);
-  const [showAudio, setShowAudio] = useState(false);
+  const typed = useTypewriter(analysis?.comment ?? "");
 
   if (state === "idle") return null;
 
   if (state === "loading") {
     return (
-      <div className="rounded-2xl border border-hairline bg-ink-800/40 p-4">
-        <div className="flex items-center gap-3">
-          <span className="relative inline-flex h-2.5 w-2.5">
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent opacity-60" />
-            <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-accent" />
-          </span>
-          <span className="text-[13px] font-medium text-ink-200">
-            Gemini が解析中…
-          </span>
-        </div>
-        <div className="mt-3 space-y-2">
-          <div className="h-3 w-3/4 animate-pulse rounded bg-ink-800" />
-          <div className="h-3 w-1/2 animate-pulse rounded bg-ink-800" />
+      <div className="flex items-start gap-2.5">
+        <CodexAvatar />
+        <div className="rounded-2xl rounded-tl-md border border-hairline bg-ink-800/50 px-3.5 py-2.5">
+          <ThinkingDots />
         </div>
       </div>
     );
@@ -57,87 +74,75 @@ export function CaptureAnalysisPanel({
 
   if (state === "error") {
     return (
-      <div className="rounded-2xl border border-red-500/30 bg-red-500/5 p-4 text-[13px] text-red-200">
-        <p className="font-medium">AI 解析に失敗しました</p>
-        <p className="mt-1 text-red-300/80">{error ?? "Unknown error"}</p>
+      <div className="flex items-start gap-2.5">
+        <CodexAvatar />
+        <div className="rounded-2xl rounded-tl-md border border-red-500/30 bg-red-500/5 px-3.5 py-2.5 text-[13px] text-red-200">
+          <p>うまく見えなかった…ごめん。</p>
+          {error ? (
+            <p className="mt-1 text-[11px] text-red-300/70">{error}</p>
+          ) : null}
+        </div>
       </div>
     );
   }
 
-  // state === "ready"
   if (!analysis) return null;
-  const hasOcr = analysis.ocr_text.trim().length > 0;
-  const hasAudio = analysis.audio_transcript.trim().length > 0;
+  const showCursor = typed.length < (analysis.comment?.length ?? 0);
 
   return (
     <div className="space-y-3">
-      <div className="rounded-2xl border border-hairline bg-gradient-to-br from-ink-800/70 to-ink-900/40 p-4 shadow-card">
-        <div className="flex items-center justify-between gap-2">
-          <span
-            className={
-              "inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.14em] " +
-              CATEGORY_TONE[analysis.category]
-            }
-          >
-            {CATEGORY_LABEL[analysis.category]}
-          </span>
-          {driveUrl ? (
-            <a
-              href={driveUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-[11px] font-medium text-ink-300 underline-offset-4 hover:text-accent-soft hover:underline"
-            >
-              Drive で開く ↗
-            </a>
+      <div className="flex items-start gap-2.5">
+        <CodexAvatar />
+        <div className="flex-1 space-y-2">
+          <div className="rounded-2xl rounded-tl-md border border-hairline bg-gradient-to-br from-ink-800/70 to-ink-900/40 px-4 py-3 shadow-card">
+            <p className="whitespace-pre-line text-[14.5px] leading-relaxed text-ink-50">
+              {typed}
+              {showCursor ? (
+                <span className="ml-0.5 inline-block h-[1.05em] w-[2px] -translate-y-0.5 animate-pulse bg-accent align-middle" />
+              ) : null}
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-1.5">
+            {analysis.emoji ? (
+              <span className="inline-flex items-center gap-1 rounded-full border border-accent/40 bg-accent/10 px-2 py-0.5 text-[11px] text-accent-soft">
+                <span>{analysis.emoji}</span>
+                {analysis.mood ? <span>{analysis.mood}</span> : null}
+              </span>
+            ) : null}
+            {analysis.album ? (
+              <span className="inline-flex items-center gap-1 rounded-full border border-hairline bg-ink-900/60 px-2 py-0.5 text-[11px] text-ink-200">
+                <span aria-hidden>📁</span>
+                <span>{analysis.album}</span>
+              </span>
+            ) : null}
+            {driveUrl ? (
+              <a
+                href={driveUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="ml-auto text-[11px] font-medium text-ink-300 underline-offset-4 hover:text-accent-soft hover:underline"
+              >
+                Drive で開く ↗
+              </a>
+            ) : null}
+          </div>
+
+          {analysis.followups.length > 0 ? (
+            <div className="flex flex-wrap gap-1.5 pt-0.5">
+              {analysis.followups.slice(0, 2).map((q) => (
+                <span
+                  key={q}
+                  className="inline-flex rounded-full border border-dashed border-hairline px-2.5 py-1 text-[11px] text-ink-300"
+                  title="次に Codex が聞いてきそうな質問"
+                >
+                  {q}
+                </span>
+              ))}
+            </div>
           ) : null}
         </div>
-        <p className="mt-2 text-[15px] font-semibold leading-snug text-ink-50">
-          {analysis.summary}
-        </p>
-        {analysis.suggested_tags.length > 0 ? (
-          <div className="mt-2.5 flex flex-wrap gap-1.5">
-            {analysis.suggested_tags.map((t) => (
-              <span
-                key={t}
-                className="inline-flex rounded-full border border-hairline bg-ink-900/60 px-2 py-0.5 text-[11px] text-ink-200"
-              >
-                {t}
-              </span>
-            ))}
-          </div>
-        ) : null}
       </div>
-
-      {hasOcr ? (
-        <details
-          open={showOcr}
-          onToggle={(e) => setShowOcr((e.target as HTMLDetailsElement).open)}
-          className="rounded-2xl border border-hairline bg-ink-800/30"
-        >
-          <summary className="cursor-pointer px-4 py-2.5 text-[12px] font-medium text-ink-300 marker:text-ink-500">
-            OCR テキスト
-          </summary>
-          <pre className="max-h-72 overflow-auto whitespace-pre-wrap break-words border-t border-hairline px-4 py-3 text-[12px] leading-relaxed text-ink-100">
-            {analysis.ocr_text}
-          </pre>
-        </details>
-      ) : null}
-
-      {hasAudio ? (
-        <details
-          open={showAudio}
-          onToggle={(e) => setShowAudio((e.target as HTMLDetailsElement).open)}
-          className="rounded-2xl border border-hairline bg-ink-800/30"
-        >
-          <summary className="cursor-pointer px-4 py-2.5 text-[12px] font-medium text-ink-300 marker:text-ink-500">
-            音声書き起こし
-          </summary>
-          <p className="border-t border-hairline px-4 py-3 text-[12px] leading-relaxed text-ink-100">
-            {analysis.audio_transcript}
-          </p>
-        </details>
-      ) : null}
     </div>
   );
 }

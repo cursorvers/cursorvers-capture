@@ -2,7 +2,7 @@
 // 'drive.file' so we only see files this app created — exactly the
 // captures we want listed, nothing more.
 
-import { parseDescription, type CaptureAnalysis } from "./capture-analysis";
+import { parseDescription, type CodexReply } from "./capture-analysis";
 
 export type HistoryEntry = {
   id: string;
@@ -12,7 +12,7 @@ export type HistoryEntry = {
   thumbnailLink?: string;
   webViewLink?: string;
   description?: string;
-  analysis: CaptureAnalysis | null;
+  analysis: CodexReply | null;
 };
 
 const FIELDS =

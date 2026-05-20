@@ -1,18 +1,21 @@
-// Client-side AI analysis: posts the captured image (+ optional audio) to
-// /api/codex/analyze, then writes the structured result into the Drive
-// file's description so the history view (and external tools that read
-// Drive metadata) can surface it.
+// Codex Companion client. Posts the captured image (+ optional audio) to
+// /api/codex/analyze (which proxies to the cursorvers-codex-gateway) and
+// returns a CodexReply: a personable comment + mood + emoji + album.
+// The reply is stored in the Drive file description so the history view
+// can re-render it from Drive metadata.
 
-export type CaptureAnalysis = {
-  summary: string;
-  ocr_text: string;
-  audio_transcript: string;
-  suggested_tags: string[];
-  category: "medical" | "document" | "scene" | "other";
+export type CodexReply = {
+  comment: string;
+  mood: string;
+  emoji: string;
+  album: string;
+  followups: string[];
 };
 
+// Kept as an alias so existing imports don't break — same shape now.
+export type CaptureAnalysis = CodexReply;
+
 async function blobToBase64(blob: Blob): Promise<string> {
-  // Strip the data URL prefix so we can send raw base64 to the API.
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onerror = () => reject(reader.error ?? new Error("FileReader error"));
@@ -32,7 +35,7 @@ async function blobToBase64(blob: Blob): Promise<string> {
 export async function analyzeCapture(opts: {
   image: Blob;
   audio?: Blob | null;
-}): Promise<CaptureAnalysis> {
+}): Promise<CodexReply> {
   const image_base64 = await blobToBase64(opts.image);
   const audio_base64 = opts.audio ? await blobToBase64(opts.audio) : undefined;
   const payload = {
@@ -48,58 +51,62 @@ export async function analyzeCapture(opts: {
   });
   if (!res.ok) {
     const body = await res.text();
-    throw new Error(`Analyze failed (${res.status}): ${body.slice(0, 200)}`);
+    throw new Error(`Codex unreachable (${res.status}): ${body.slice(0, 200)}`);
   }
-  return (await res.json()) as CaptureAnalysis;
+  return (await res.json()) as CodexReply;
 }
 
-const DESC_MARKER = "__cv_analysis__:";
+const DESC_MARKER = "__cv_codex__:";
 
-// We store the JSON as a magic-prefixed line so a user editing the
-// description in the Drive UI doesn't lose it accidentally (and so we
-// can detect ours vs. user-typed text).
-export function buildDescription(analysis: CaptureAnalysis): string {
-  const meta = {
-    summary: analysis.summary,
-    tags: analysis.suggested_tags,
-    category: analysis.category,
-    ocr_text: analysis.ocr_text,
-    audio_transcript: analysis.audio_transcript,
-  };
-  return `${analysis.summary}\n\n${DESC_MARKER}${JSON.stringify(meta)}`;
+export function buildDescription(reply: CodexReply): string {
+  return `${reply.emoji} ${reply.comment}\n\n${DESC_MARKER}${JSON.stringify(reply)}`;
 }
 
 export function parseDescription(
   description: string | undefined,
-): CaptureAnalysis | null {
+): CodexReply | null {
   if (!description) return null;
   const idx = description.indexOf(DESC_MARKER);
-  if (idx < 0) return null;
-  try {
-    const json = description.slice(idx + DESC_MARKER.length).trim();
-    const parsed = JSON.parse(json) as {
-      summary?: string;
-      tags?: string[];
-      category?: CaptureAnalysis["category"];
-      ocr_text?: string;
-      audio_transcript?: string;
-    };
-    return {
-      summary: parsed.summary ?? "",
-      ocr_text: parsed.ocr_text ?? "",
-      audio_transcript: parsed.audio_transcript ?? "",
-      suggested_tags: parsed.tags ?? [],
-      category: parsed.category ?? "other",
-    };
-  } catch {
-    return null;
+  if (idx >= 0) {
+    try {
+      const json = description.slice(idx + DESC_MARKER.length).trim();
+      const parsed = JSON.parse(json) as Partial<CodexReply>;
+      return {
+        comment: parsed.comment ?? "",
+        mood: parsed.mood ?? "",
+        emoji: parsed.emoji ?? "✨",
+        album: parsed.album ?? "",
+        followups: parsed.followups ?? [],
+      };
+    } catch {
+      // fall through to legacy parser
+    }
   }
+  // Legacy: old format stored under __cv_analysis__ with summary/tags etc.
+  // Map it onto the new shape so old captures don't appear blank.
+  const legacy = description.indexOf("__cv_analysis__:");
+  if (legacy >= 0) {
+    try {
+      const json = description.slice(legacy + "__cv_analysis__:".length).trim();
+      const parsed = JSON.parse(json) as { summary?: string; tags?: string[] };
+      return {
+        comment: parsed.summary ?? "",
+        mood: "",
+        emoji: "✨",
+        album: "",
+        followups: [],
+      };
+    } catch {
+      return null;
+    }
+  }
+  return null;
 }
 
 export async function saveAnalysisToDrive(
   fileId: string,
   accessToken: string,
-  analysis: CaptureAnalysis,
+  reply: CodexReply,
 ): Promise<void> {
   await fetch(
     `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}`,
@@ -109,7 +116,7 @@ export async function saveAnalysisToDrive(
         Authorization: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ description: buildDescription(analysis) }),
+      body: JSON.stringify({ description: buildDescription(reply) }),
     },
   );
 }

@@ -17,34 +17,31 @@ function relativeTime(iso: string): string {
   if (diff < 3600) return `${Math.floor(diff / 60)} 分前`;
   if (diff < 86400) return `${Math.floor(diff / 3600)} 時間前`;
   if (diff < 86400 * 7) return `${Math.floor(diff / 86400)} 日前`;
-  return d.toLocaleDateString("ja-JP", {
-    month: "short",
-    day: "numeric",
-  });
+  return d.toLocaleDateString("ja-JP", { month: "short", day: "numeric" });
 }
 
 export function HistoryGrid({ entries, onSelect }: Props): JSX.Element {
   if (entries.length === 0) {
     return (
       <div className="rounded-2xl border border-hairline bg-ink-800/30 px-5 py-12 text-center">
-        <p className="text-[14px] text-ink-300">まだ撮影はありません</p>
+        <p className="text-[14px] text-ink-300">まだ何も撮ってない</p>
         <p className="mt-1 text-[12px] text-ink-400">
-          ホームに戻って 1 枚撮ってみてください
+          ホームから 1 枚撮ってみよう
         </p>
       </div>
     );
   }
 
   return (
-    <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+    <ul className="flex flex-col gap-3">
       {entries.map((e) => (
         <li key={e.id}>
           <button
             type="button"
             onClick={() => onSelect(e)}
-            className="group flex w-full flex-col overflow-hidden rounded-2xl border border-hairline bg-ink-800/40 text-left transition active:scale-[0.98] hover:border-white/20 hover:bg-ink-800/60"
+            className="group flex w-full items-start gap-3 rounded-2xl border border-hairline bg-ink-800/40 p-3 text-left transition active:scale-[0.99] hover:border-white/20 hover:bg-ink-800/60"
           >
-            <div className="relative aspect-[4/3] w-full bg-ink-900/60">
+            <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-xl bg-ink-900/60">
               {e.thumbnailLink ? (
                 /* eslint-disable-next-line @next/next/no-img-element */
                 <img
@@ -55,18 +52,29 @@ export function HistoryGrid({ entries, onSelect }: Props): JSX.Element {
                   loading="lazy"
                 />
               ) : (
-                <div className="flex h-full items-center justify-center text-[11px] text-ink-500">
+                <div className="flex h-full items-center justify-center text-[10px] text-ink-500">
                   no preview
                 </div>
               )}
+              {e.analysis?.emoji ? (
+                <span className="absolute bottom-1 right-1 inline-flex h-5 w-5 items-center justify-center rounded-full bg-ink-900/80 text-[11px]">
+                  {e.analysis.emoji}
+                </span>
+              ) : null}
             </div>
-            <div className="flex flex-col gap-1 px-3 py-2.5">
-              <p className="line-clamp-2 text-[12px] font-medium leading-tight text-ink-100">
-                {e.analysis?.summary || e.name}
+            <div className="flex min-w-0 flex-1 flex-col gap-1">
+              <p className="line-clamp-2 text-[13px] leading-snug text-ink-100">
+                {e.analysis?.comment || e.name}
               </p>
-              <p className="text-[10px] text-ink-400">
-                {relativeTime(e.createdTime)}
-              </p>
+              <div className="flex items-center gap-1.5 text-[10px] text-ink-400">
+                <span>{relativeTime(e.createdTime)}</span>
+                {e.analysis?.album ? (
+                  <>
+                    <span className="opacity-50">·</span>
+                    <span className="truncate">📁 {e.analysis.album}</span>
+                  </>
+                ) : null}
+              </div>
             </div>
           </button>
         </li>
