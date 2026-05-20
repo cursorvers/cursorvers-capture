@@ -8,6 +8,7 @@ import {
   type KeyboardEvent,
 } from "react";
 import { DocRoutingPanel } from "@/app/components/DocRoutingPanel";
+import { FolderShareSheet } from "@/app/components/FolderShareSheet";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Suspense } from "react";
@@ -150,6 +151,7 @@ function ClipboardIcon(): JSX.Element {
 function SettingsContent(): JSX.Element {
   const router = useRouter();
   const [folderId, setFolderId] = useState<string | null>(null);
+  const [mainFolderShareOpen, setMainFolderShareOpen] = useState(false);
   const [folderInput, setFolderInput] = useState("");
   const [folderHistory, setFolderHistory] = useState<
     { id: string; addedAt: number }[]
@@ -590,6 +592,29 @@ function SettingsContent(): JSX.Element {
 
       {/* ─────────── 保存先振り分け ─────────── */}
       <Group title="保存先振り分け">
+        {folderId ? (
+          <div className="flex items-center justify-between gap-2 rounded-2xl border border-hairline bg-ink-800/30 px-4 py-3">
+            <div className="flex min-w-0 flex-col">
+              <span className="text-[11px] uppercase tracking-[0.14em] text-ink-400">
+                MAIN FOLDER
+              </span>
+              <span className="truncate text-[13px] text-ink-100">{folderId}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setMainFolderShareOpen(true)}
+              className="inline-flex h-8 shrink-0 items-center rounded-full border border-accent/40 bg-accent/10 px-3 text-[12px] font-medium text-accent-soft hover:bg-accent/20"
+            >
+              共有
+            </button>
+          </div>
+        ) : null}
+        <FolderShareSheet
+          open={mainFolderShareOpen}
+          folderId={folderId}
+          folderLabel="メイン保存先"
+          onClose={() => setMainFolderShareOpen(false)}
+        />
         <DocRoutingPanel
           mainFolderId={folderId}
           mainFolderLabel={null}

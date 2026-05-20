@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState, type JSX } from "react";
 import { getCurrentToken } from "@/app/lib/gis";
+import { FolderShareSheet } from "@/app/components/FolderShareSheet";
 import {
   DOC_TYPE_LABEL,
   createDriveFolder,
@@ -33,6 +34,7 @@ export function DocRoutingPanel({ mainFolderId, mainFolderLabel }: Props): JSX.E
   const [labels, setLabels] = useState<FolderLabelMap>({});
   const [busy, setBusy] = useState<DocType | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [shareTarget, setShareTarget] = useState<{ id: string; label: string } | null>(null);
 
   const refresh = useCallback(async () => {
     const r = await getRouting();
@@ -119,13 +121,22 @@ export function DocRoutingPanel({ mainFolderId, mainFolderLabel }: Props): JSX.E
                 </span>
               </div>
               {id ? (
-                <button
-                  type="button"
-                  onClick={() => void handleClear(t)}
-                  className="inline-flex h-8 items-center rounded-full border border-hairline px-2.5 text-[11px] text-ink-300 hover:text-red-300"
-                >
-                  解除
-                </button>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setShareTarget({ id, label: name ?? DOC_TYPE_LABEL[t] })}
+                    className="inline-flex h-8 items-center rounded-full border border-accent/40 bg-accent/10 px-2.5 text-[11px] font-medium text-accent-soft hover:bg-accent/20"
+                  >
+                    共有
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void handleClear(t)}
+                    className="inline-flex h-8 items-center rounded-full border border-hairline px-2.5 text-[11px] text-ink-300 hover:text-red-300"
+                  >
+                    解除
+                  </button>
+                </div>
               ) : (
                 <button
                   type="button"
@@ -143,6 +154,12 @@ export function DocRoutingPanel({ mainFolderId, mainFolderLabel }: Props): JSX.E
       {error ? (
         <p className="text-[11px] text-red-300/80">{error}</p>
       ) : null}
+      <FolderShareSheet
+        open={shareTarget !== null}
+        folderId={shareTarget?.id ?? null}
+        folderLabel={shareTarget?.label ?? null}
+        onClose={() => setShareTarget(null)}
+      />
     </div>
   );
 }
