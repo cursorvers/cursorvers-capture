@@ -4,29 +4,27 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 function BrandMark(): JSX.Element {
+  // Capture motif: 4 viewfinder corner brackets (orange) + shutter dot (orange).
+  // Cursorvers 本体ロゴ (cursor + orbit) とは別の sub-brand mark。
   return (
     <svg
-      viewBox="0 0 64 64"
+      viewBox="0 0 32 32"
       aria-hidden
       className="h-5 w-5 shrink-0"
     >
-      <ellipse
-        cx="32" cy="36" rx="22" ry="7"
+      <g
+        stroke="#fb923c"
+        strokeWidth="2"
         fill="none"
-        stroke="currentColor"
-        strokeWidth="3"
         strokeLinecap="round"
-        transform="rotate(-18 32 36)"
-        opacity="0.7"
-      />
-      <path
-        d="M27 18 L44 30 L36 31 L34 41 Z"
-        fill="currentColor"
-        stroke="currentColor"
-        strokeWidth="1.5"
         strokeLinejoin="round"
-      />
-      <circle cx="27" cy="18" r="2.5" fill="#fff"/>
+      >
+        <path d="M 6 11 L 6 6 L 11 6"/>
+        <path d="M 21 6 L 26 6 L 26 11"/>
+        <path d="M 6 21 L 6 26 L 11 26"/>
+        <path d="M 21 26 L 26 26 L 26 21"/>
+      </g>
+      <circle cx="16" cy="16" r="3.5" fill="#f97316"/>
     </svg>
   );
 }
