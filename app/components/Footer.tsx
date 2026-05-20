@@ -2,17 +2,27 @@ import Link from "next/link";
 
 export function Footer() {
   return (
-    <footer className="mt-auto w-full px-4 py-3 text-center">
-      <p className="text-[11px] text-neutral-500">
-        初月 experimental ·{" "}
-        <Link href="/privacy" className="underline hover:text-neutral-300">
-          Privacy
-        </Link>{" "}
-        ·{" "}
-        <Link href="/terms" className="underline hover:text-neutral-300">
-          Terms
-        </Link>
-      </p>
+    <footer className="mt-auto w-full border-t border-hairline px-5 py-6">
+      <div className="mx-auto flex max-w-3xl flex-col items-center gap-1.5 text-center sm:flex-row sm:justify-between sm:text-left">
+        <p className="text-[11px] uppercase tracking-[0.18em] text-ink-400">
+          experimental · Cursorvers Capture
+        </p>
+        <nav className="flex items-center gap-4 text-[11px] text-ink-400">
+          <Link
+            href="/privacy"
+            className="transition hover:text-ink-100"
+          >
+            Privacy
+          </Link>
+          <span aria-hidden className="h-3 w-px bg-white/10" />
+          <Link
+            href="/terms"
+            className="transition hover:text-ink-100"
+          >
+            Terms
+          </Link>
+        </nav>
+      </div>
     </footer>
   );
 }

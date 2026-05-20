@@ -278,15 +278,21 @@ export function CameraButton({
       />
       <div className="relative w-full">
         {isRecording ? (
-          <div className="pointer-events-none absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 rounded-xl border border-red-700 bg-black/80 px-3 py-4">
-            <div className="flex items-center gap-2 text-red-400">
-              <span className="inline-block h-3 w-3 rounded-full bg-red-500" />
-              <span className="text-sm font-semibold">録音中</span>
+          <div
+            className="pointer-events-none absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 rounded-2xl border border-red-500/40 bg-red-500/10 px-3 py-4 backdrop-blur-md"
+            aria-live="polite"
+          >
+            <div className="flex items-center gap-2 text-red-100">
+              <span
+                aria-hidden
+                className="inline-block h-2.5 w-2.5 animate-pulse rounded-full bg-red-400"
+              />
+              <span className="text-sm font-semibold tracking-tight">録音中</span>
             </div>
-            <p className="font-mono text-lg text-white">
+            <p className="font-mono text-2xl tabular-nums text-red-50">
               {countdownSec.toFixed(1)}
             </p>
-            <p className="text-center text-xs text-neutral-400">
+            <p className="text-center text-[11px] text-red-100/70">
               指を離すと録音終了
             </p>
           </div>
@@ -309,31 +315,23 @@ export function CameraButton({
           }}
           className={
             hero
-              ? "w-full rounded-2xl bg-orange-500 px-6 py-5 text-lg font-semibold text-white shadow-lg hover:bg-orange-600"
-              : "w-full rounded-xl bg-neutral-800 px-4 py-3 text-sm font-medium hover:bg-neutral-700"
+              ? "group relative inline-flex h-14 w-full items-center justify-center gap-2 overflow-hidden rounded-2xl bg-accent-grad px-6 text-[15px] font-semibold tracking-tight text-white shadow-glow transition active:scale-[0.98] hover:-translate-y-px hover:shadow-[0_0_44px_-4px_rgba(249,115,22,0.5)]"
+              : "inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-hairline bg-ink-800/60 px-4 text-sm font-medium text-ink-100 transition hover:border-white/20 hover:bg-ink-800"
           }
         >
-          📷 撮影する
+          <span aria-hidden className="text-base">📷</span>
+          <span>撮影する</span>
         </button>
       </div>
       {!hidePreview && previewUrl ? (
-        <div className="flex flex-col items-center gap-2 rounded-xl border border-neutral-800 bg-neutral-900/30 px-3 py-3">
+        <div className="flex flex-col items-center gap-2 rounded-2xl border border-hairline bg-ink-800/40 px-3 py-3 shadow-card">
           {/* eslint-disable-next-line @next/next/no-img-element -- blob preview */}
           <img
             src={previewUrl}
-            alt=""
-            className="h-20 w-20 rounded-lg object-cover"
+            alt="撮影プレビュー"
+            className="max-h-64 w-auto rounded-lg"
           />
-          <p className="break-all text-center text-xs font-mono text-neutral-300">
-            {filenameLabel}
-          </p>
-          <button
-            type="button"
-            disabled
-            className="w-full cursor-not-allowed rounded-xl bg-neutral-800 px-4 py-2 text-xs font-medium opacity-60"
-          >
-            Upload (S4)
-          </button>
+          <p className="break-all text-[11px] text-ink-400">{filenameLabel}</p>
         </div>
       ) : null}
     </div>

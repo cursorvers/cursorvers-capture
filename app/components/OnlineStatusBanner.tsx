@@ -2,14 +2,6 @@
 
 import { useOnlineStatus } from "@/app/lib/network";
 
-/**
- * Banner that surfaces offline state to the user so they understand why a
- * capture queued instead of uploading. Stays mounted; only renders when
- * offline so the markup is a no-op for the common path.
- *
- * Styling intentionally matches the existing neutral palette so it does
- * not require Tailwind theme changes.
- */
 export function OnlineStatusBanner(): JSX.Element | null {
   const isOnline = useOnlineStatus();
 
@@ -22,8 +14,11 @@ export function OnlineStatusBanner(): JSX.Element | null {
       role="status"
       aria-live="polite"
       data-testid="online-status-banner-offline"
-      className="bg-amber-600 px-4 py-2 text-center text-sm font-medium text-white shadow-md"
+      className="border-b border-amber-500/30 bg-amber-500/10 px-5 py-2.5 text-center text-[13px] font-medium text-amber-100 backdrop-blur-md"
     >
+      <span className="mr-1.5" aria-hidden>
+        ●
+      </span>
       オフラインです。撮影は端末に保存され、接続が戻った時に Google Drive へ送信されます。
     </div>
   );

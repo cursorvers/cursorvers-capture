@@ -3,14 +3,48 @@
 @tailwind utilities;
 
 /*
- * Body color / background は Tailwind class (`bg-navy-900 text-gray-100`) を
- * 優先する。以前ここで定義されていた element-selector `body { ... }` rule は
- * specificity の cascade で Tailwind class より後勝ちしてしまい、layout の
- * bg-navy-900 を上書きしていた。Tailwind native の utility に統一する。
+ * Base canvas. Tailwind utility classes on <body> remain the primary lever;
+ * this file only declares font defaults and a subtle hero glow that paints
+ * behind every page so the layout never feels flat.
  */
+html,
+body {
+  background-color: #0b0d12;
+}
+
+body {
+  font-feature-settings: "ss01" on, "cv11" on;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-image: radial-gradient(
+    ellipse 90% 70% at 50% -10%,
+    rgba(10, 26, 74, 0.55) 0%,
+    rgba(10, 26, 74, 0.18) 30%,
+    transparent 60%
+  );
+  background-attachment: fixed;
+}
 
 @layer utilities {
   .text-balance {
     text-wrap: balance;
   }
+  /* subtle glass surface used by header / cards */
+  .glass {
+    background-color: rgba(255, 255, 255, 0.03);
+    -webkit-backdrop-filter: saturate(140%) blur(14px);
+    backdrop-filter: saturate(140%) blur(14px);
+    border-color: rgba(255, 255, 255, 0.06);
+  }
+  /* hairline divider color */
+  .border-hairline {
+    border-color: rgba(255, 255, 255, 0.06);
+  }
+}
+
+/* Focus ring honoring keyboard navigation. */
+:focus-visible {
+  outline: 2px solid #fb923c;
+  outline-offset: 2px;
+  border-radius: 6px;
 }

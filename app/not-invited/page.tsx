@@ -1,15 +1,24 @@
+import Link from "next/link";
+
 export default function NotInvitedPage() {
   return (
-    <div className="flex min-h-[calc(100vh-theme(spacing.16))] flex-col items-center justify-center p-4 bg-navy-900 text-gray-100">
-      <h1 className="text-3xl font-bold text-orange-400 mb-4">
+    <div className="mx-auto flex min-h-[calc(100vh-9rem)] max-w-md flex-col items-center justify-center gap-6 px-5 py-12 text-center">
+      <span className="inline-flex items-center gap-1.5 rounded-full border border-hairline bg-white/[0.02] px-3 py-1 text-[10px] uppercase tracking-[0.18em] text-ink-300">
+        Restricted
+      </span>
+      <h1 className="font-display text-3xl font-semibold tracking-tightest text-ink-50">
         ご招待されていません
       </h1>
-      <p className="text-lg text-gray-300 text-center max-w-md">
-        このアプリは Cursorvers 顧問先の方向けに配布されています。
+      <p className="max-w-sm text-[14px] leading-relaxed text-ink-300">
+        このアプリは Cursorvers 顧問先の方向けに、招待制で配布されています。
+        アクセス権についてのお問い合わせは下記までご連絡ください。
       </p>
-      <p className="text-md text-gray-400 text-center mt-2 max-w-md">
-        お問い合わせは <a href="mailto:info@cursorvers.com" className="underline text-orange-400">info@cursorvers.com</a>
-      </p>
+      <Link
+        href="mailto:info@cursorvers.com"
+        className="inline-flex h-10 items-center gap-2 rounded-full border border-hairline bg-ink-800/60 px-4 text-[13px] font-medium text-ink-100 transition hover:border-white/20 hover:bg-ink-800"
+      >
+        info@cursorvers.com
+      </Link>
     </div>
   );
 }
