@@ -1,7 +1,12 @@
 "use client";
 
-import { useEffect, useState, type JSX } from "react";
-import { getCurrentToken, signIn } from "@/app/lib/gis";
+import { useEffect, useRef, useState, type JSX } from "react";
+import {
+  getCurrentToken,
+  isGisReady,
+  prepareTokenClient,
+  type PreparedTokenClient,
+} from "@/app/lib/gis";
 import { useTier } from "@/app/lib/tier";
 
 type SignInButtonProps = {
@@ -40,8 +45,11 @@ export function SignInButton({ minimal = false }: SignInButtonProps): JSX.Elemen
   const [signedIn, setSignedIn] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { email } = useTier();
+  const [gisReady, setGisReady] = useState(false);
+  const tokenClientRef = useRef<PreparedTokenClient | null>(null);
+  const { email, refresh } = useTier();
 
+  // Check current sign-in state from IDB.
   useEffect(() => {
     let cancelled = false;
     void (async () => {
@@ -55,19 +63,65 @@ export function SignInButton({ minimal = false }: SignInButtonProps): JSX.Elemen
     };
   }, []);
 
-  async function onSignIn(): Promise<void> {
-    setError(null);
-    setBusy(true);
-    try {
-      await signIn();
-      setSignedIn(true);
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      setError(msg);
-      setSignedIn(false);
-    } finally {
-      setBusy(false);
+  // Prepare the GIS tokenClient as soon as the GIS script is loaded.
+  // We poll briefly (100ms × 50 = 5s ceiling) because the <script async>
+  // tag in layout may finish loading after this component mounts.
+  useEffect(() => {
+    if (tokenClientRef.current) {
+      return;
     }
+    let attempts = 0;
+    let timer: ReturnType<typeof setInterval> | null = null;
+
+    const tryPrepare = (): boolean => {
+      if (!isGisReady()) {
+        return false;
+      }
+      tokenClientRef.current = prepareTokenClient({
+        onSuccess: () => {
+          setSignedIn(true);
+          setBusy(false);
+          setError(null);
+          void refresh();
+        },
+        onError: (err) => {
+          setError(err.message);
+          setSignedIn(false);
+          setBusy(false);
+        },
+      });
+      setGisReady(true);
+      return true;
+    };
+
+    if (!tryPrepare()) {
+      timer = setInterval(() => {
+        attempts += 1;
+        if (tryPrepare() || attempts >= 50) {
+          if (timer) clearInterval(timer);
+        }
+      }, 100);
+    }
+    return () => {
+      if (timer) clearInterval(timer);
+    };
+  }, [refresh]);
+
+  // SYNCHRONOUS click handler — no await before requestAccessToken so iOS
+  // Safari preserves the user-gesture token and allows the popup.
+  function onSignIn(): void {
+    setError(null);
+    const client = tokenClientRef.current;
+    if (!client) {
+      setError(
+        gisReady
+          ? "サインインを準備中です。少し待ってからもう一度お試しください。"
+          : "Google サインインの読み込みに失敗しました。ネットワークをご確認ください。",
+      );
+      return;
+    }
+    setBusy(true);
+    client.requestAccessToken({ prompt: "consent" });
   }
 
   return (
@@ -75,13 +129,13 @@ export function SignInButton({ minimal = false }: SignInButtonProps): JSX.Elemen
       {!signedIn ? (
         <button
           type="button"
-          disabled={busy}
-          onClick={() => void onSignIn()}
+          disabled={busy || !gisReady}
+          onClick={onSignIn}
           className="group inline-flex h-11 w-full items-center justify-center gap-2.5 rounded-xl border border-hairline bg-ink-800/60 px-4 text-sm font-medium text-ink-100 shadow-card transition hover:border-white/20 hover:bg-ink-800 disabled:opacity-50"
           data-testid="signin-button-google"
         >
           <GoogleGlyph />
-          <span>Google でサインイン</span>
+          <span>{busy ? "サインイン中…" : "Google でサインイン"}</span>
         </button>
       ) : minimal ? (
         <p

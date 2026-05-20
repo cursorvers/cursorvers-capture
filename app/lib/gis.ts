@@ -210,3 +210,100 @@ export async function getCurrentToken(): Promise<string | null> {
   }
   return record.access_token;
 }
+
+
+// ───────────────────────────────────────────────────────────────────
+// iOS-safe synchronous popup path.
+// Components call prepareTokenClient() once (e.g. in a useEffect after the
+// GIS script has loaded) and reuse the returned tokenClient by calling
+// .requestAccessToken({ prompt: "consent" }) directly inside their onClick.
+// That keeps the call stack synchronous from user-gesture → window.open,
+// which iOS Safari requires for popup-allow.
+// ───────────────────────────────────────────────────────────────────
+
+export type PreparedTokenClient = {
+  requestAccessToken: (opts: { prompt: "consent" | "" }) => void;
+};
+
+export type TokenGrantResolved = {
+  access_token: string;
+  expires_in: number;
+  email: string | null;
+};
+
+type TokenGrantHandlers = {
+  onSuccess: (grant: TokenGrantResolved) => void;
+  onError: (err: Error) => void;
+};
+
+export function isGisReady(): boolean {
+  return typeof window !== "undefined" && !!window.google?.accounts?.oauth2;
+}
+
+export function prepareTokenClient(
+  handlers: TokenGrantHandlers,
+): PreparedTokenClient | null {
+  requireBrowser();
+  if (!isGisReady()) {
+    return null;
+  }
+  const oauth2 = window.google!.accounts!.oauth2;
+  const clientId = getClientId();
+  return oauth2.initTokenClient({
+    client_id: clientId,
+    scope: "https://www.googleapis.com/auth/drive.file",
+    callback: (resp) => {
+      if (resp.error) {
+        const detail = resp.error_description
+          ? `${resp.error}: ${resp.error_description}`
+          : resp.error;
+        handlers.onError(new Error(detail));
+        return;
+      }
+      if (!resp.access_token) {
+        handlers.onError(new Error("No access token received"));
+        return;
+      }
+      const expiresIn = parseExpiresIn(resp.expires_in);
+      const accessToken = resp.access_token;
+      // All the slow work happens HERE, in the callback — after the popup
+      // has already opened and the user has already consented. iOS popup
+      // blocking is no longer a concern at this point.
+      void (async () => {
+        try {
+          const record: AuthRecord = {
+            id: "current",
+            access_token: accessToken,
+            expires_at: Date.now() + expiresIn * 1000,
+            scope: "drive.file",
+          };
+          await idbPut("auth", record);
+          const userInfoRes = await fetch(
+            "https://www.googleapis.com/oauth2/v3/userinfo",
+            {
+              headers: { Authorization: `Bearer ${accessToken}` },
+            },
+          );
+          const userInfo = (await userInfoRes.json()) as { email?: string };
+          const email = userInfo.email ?? null;
+          if (email) {
+            await fetch("/api/me", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ email, access_token: accessToken }),
+            });
+          }
+          handlers.onSuccess({
+            access_token: accessToken,
+            expires_in: expiresIn,
+            email,
+          });
+        } catch (err) {
+          handlers.onError(
+            err instanceof Error ? err : new Error(String(err)),
+          );
+        }
+      })();
+    },
+  });
+}
