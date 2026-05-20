@@ -3,7 +3,7 @@ import type { MetadataRoute } from "next";
 export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "Cursorvers Capture",
-    short_name: "Capture",
+    short_name: "Cursorvers Capture",
     start_url: "/",
     display: "standalone",
     background_color: "#0a1a4a",
