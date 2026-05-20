@@ -1,7 +1,13 @@
 "use client";
 
-import dynamic from "next/dynamic";
 import { CameraButton } from "@/app/components/CameraButton";
+import { CaptureAnalysisPanel } from "@/app/components/CaptureAnalysisPanel";
+import {
+  analyzeCapture,
+  saveAnalysisToDrive,
+  type CaptureAnalysis,
+} from "@/app/lib/capture-analysis";
+
 import { SignInButton } from "@/app/components/SignInButton";
 import { Suspense, useCallback, useEffect, useState, type JSX } from "react";
 import Link from "next/link";
@@ -10,15 +16,7 @@ import { idbGet, idbPut } from "@/app/lib/idb";
 import { getDeviceShort } from "@/app/lib/device";
 import { getCurrentToken } from "@/app/lib/gis";
 import { uploadBlob } from "@/app/lib/drive";
-import { Chatback } from "@/app/components/Chatback";
-import { OcrPanel } from "@/app/components/OcrPanel";
-import { getAudioEnabled } from "@/app/lib/audio-toggle";
-import { getOcrEnabled } from "@/app/lib/ocr-toggle";
 
-const AudioPanel = dynamic(
-  () => import("@/app/components/AudioPanel").then((mod) => mod.AudioPanel),
-  { ssr: false },
-);
 
 type ConfigFolderRecord = { key: "folder_id"; value: string };
 
@@ -55,17 +53,14 @@ function HomeContent(): JSX.Element {
   const [folderId, setFolderId] = useState<string | null>(null);
   const [deviceShort, setDeviceShort] = useState("--------");
   const [signedIn, setSignedIn] = useState(false);
-  const [uploadedFileId, setUploadedFileId] = useState<string | null>(null);
-  const [imageBase64, setImageBase64] = useState<string | null>(null);
+  const [analysisState, setAnalysisState] = useState<
+    "idle" | "loading" | "ready" | "error"
+  >("idle");
+  const [analysis, setAnalysis] = useState<CaptureAnalysis | null>(null);
+  const [analysisError, setAnalysisError] = useState<string | null>(null);
+  const [driveWebViewUrl, setDriveWebViewUrl] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
-  const [captureAudioBlob, setCaptureAudioBlob] = useState<Blob | null>(null);
-  const [ocrOn, setOcrOn] = useState(false);
-  const [audioOn, setAudioOn] = useState(false);
 
-  useEffect(() => {
-    void getOcrEnabled().then(setOcrOn);
-    void getAudioEnabled().then(setAudioOn);
-  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -133,19 +128,13 @@ function HomeContent(): JSX.Element {
       audioBlob?: Blob,
     ): Promise<void> => {
       setStatusMessage(`「${filename}」を処理中…`);
-      setUploadedFileId(null);
-      setImageBase64(null);
-      setCaptureAudioBlob(null);
 
       const reader = new FileReader();
       reader.readAsDataURL(blob);
       reader.onloadend = () => {
         const base64data = reader.result;
         if (typeof base64data === "string") {
-          setImageBase64(
-            base64data.replace(/^data:image\/(png|jpeg|gif|webp);base64,/, ""),
-          );
-        }
+          }
       };
 
       if (!folderId) {
@@ -159,11 +148,28 @@ function HomeContent(): JSX.Element {
         setStatusMessage("Google Driveへアップロード中…");
         const { fileId } = await uploadBlob(blob, filename, folderId);
 
-        setUploadedFileId(fileId);
         setStatusMessage("アップロード完了");
-        if (audioBlob) {
-          setCaptureAudioBlob(audioBlob);
-        }
+        setDriveWebViewUrl(`https://drive.google.com/file/d/${fileId}/view`);
+        setAnalysisState("loading");
+        setAnalysis(null);
+        setAnalysisError(null);
+        void (async () => {
+          try {
+            const result = await analyzeCapture({ image: blob, audio: audioBlob ?? null });
+            setAnalysis(result);
+            setAnalysisState("ready");
+            const tok = await getCurrentToken();
+            if (tok) {
+              void saveAnalysisToDrive(fileId, tok, result).catch(
+                (err) => console.error("Drive description patch failed", err),
+              );
+            }
+          } catch (err) {
+            const msg = err instanceof Error ? err.message : String(err);
+            setAnalysisError(msg);
+            setAnalysisState("error");
+          }
+        })();
 
         
       } catch (error) {
@@ -174,21 +180,6 @@ function HomeContent(): JSX.Element {
     },
     [folderId],
   );
-
-  const aiAssist = ocrOn && audioOn;
-
-  const assistExpandedContent =
-    aiAssist && uploadedFileId && imageBase64 ? (
-      <>
-        <OcrPanel driveFileId={uploadedFileId} imageBase64={imageBase64} />
-        {captureAudioBlob ? (
-          <AudioPanel
-            driveFileId={uploadedFileId}
-            audioBlob={captureAudioBlob}
-          />
-        ) : null}
-      </>
-    ) : undefined;
 
   return (
     <div className="mx-auto flex max-w-md flex-col gap-7 px-5 pb-16 pt-10 sm:pt-14">
@@ -235,7 +226,7 @@ function HomeContent(): JSX.Element {
         {signedIn ? (
           <CameraButton
             deviceShort={deviceShort}
-            audioNoteEnabled={audioOn}
+            audioNoteEnabled={true}
             hidePreview
             hero
             onCaptured={handleCaptured}
@@ -262,14 +253,14 @@ function HomeContent(): JSX.Element {
         ) : null}
       </section>
 
-      {uploadedFileId ? (
-        <section>
-          <Chatback
-            driveFileId={uploadedFileId}
-            assistExpandedContent={assistExpandedContent}
-          />
-        </section>
-      ) : null}
+      <section>
+        <CaptureAnalysisPanel
+          state={analysisState}
+          analysis={analysis}
+          error={analysisError}
+          driveUrl={driveWebViewUrl ?? undefined}
+        />
+      </section>
 
       <div aria-live="polite" className="sr-only">
         {statusMessage}

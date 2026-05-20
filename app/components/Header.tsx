@@ -70,6 +70,14 @@ export function Header() {
         )}
 
         <Link
+          href="/history"
+          aria-label="履歴"
+          className="inline-flex h-10 items-center gap-1 rounded-full border border-hairline bg-ink-900/50 px-3 text-[12px] font-medium text-ink-200 transition active:scale-[0.97] hover:border-white/20 hover:bg-ink-900 hover:text-white"
+        >
+          履歴
+        </Link>
+
+        <Link
           href="/settings"
           aria-label="設定"
           aria-current={isSettings ? "page" : undefined}

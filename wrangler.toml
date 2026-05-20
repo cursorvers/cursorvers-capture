@@ -5,6 +5,7 @@ compatibility_date = "2025-04-01"
 # (No `nodejs_compat` flag, no extra polyfills.)
 
 # Secrets — set via:
+#   wrangler pages secret put GEMINI_API_KEY --project-name cursorvers-capture
 #   wrangler pages secret put COOKIE_SECRET --project-name cursorvers-capture
 #   wrangler pages secret put INVITE_ALLOWLIST --project-name cursorvers-capture
 #   wrangler pages secret put PRO_USERS --project-name cursorvers-capture
