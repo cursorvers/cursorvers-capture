@@ -54,10 +54,25 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     return Response.json({ ok: true, email, already_claimed: true });
   }
 
-  await claimEmail(env.INVITE_KV, email, token);
-  record.used_count += 1;
-  record.used_emails.push(email.toLowerCase());
-  await putToken(env.INVITE_KV, record);
+  // 書き込み直前に再フェッチして race window 縮小 (atomic ではないが現実的軽減)
+  const latest = await getToken(env.INVITE_KV, token);
+  if (!latest) {
+    return Response.json({ error: "招待トークンが消失しました" }, { status: 410 });
+  }
+  const latestValid = isTokenValid(latest);
+  if (!latestValid.ok) {
+    return Response.json({ error: `招待トークンは無効です: ${latestValid.reason}` }, { status: 410 });
+  }
+  if (latest.used_emails.includes(email.toLowerCase())) {
+    return Response.json({ ok: true, email, already_claimed: true });
+  }
+  await claimEmail(env.INVITE_KV, email, token, 60);
+  latest.used_count += 1;
+  latest.used_emails.push(email.toLowerCase());
+  await putToken(env.INVITE_KV, latest);
+  // 既存ロジック互換のため record も更新
+  record.used_count = latest.used_count;
+  record.used_emails = latest.used_emails;
 
   return Response.json({ ok: true, email, used_count: record.used_count, max_uses: record.max_uses });
 };

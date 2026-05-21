@@ -54,6 +54,18 @@ export async function initResumableSession(opts: {
   return { sessionUrl, createdAt };
 }
 
+// Structured upload error categories
+export class DriveUploadError extends Error {
+  constructor(
+    message: string,
+    public category: "auth_expired" | "forbidden" | "session_expired" | "rate_limited" | "server_error" | "unknown",
+    public status: number,
+  ) {
+    super(message);
+    this.name = "DriveUploadError";
+  }
+}
+
 export async function uploadChunk(
   sessionUrl: string,
   blob: Blob,
@@ -75,20 +87,33 @@ export async function uploadChunk(
   if (response.status === 200 || response.status === 201) {
     const data = await response.json();
     return { done: true, fileId: data.id };
-  } else if (response.status === 308) {
+  }
+  if (response.status === 308) {
     const rangeHeader = response.headers.get('Range');
     if (rangeHeader) {
-      const match = rangeHeader.match(/bytes=(\d+)-(\d+)/);
-      if (match && match[2]) {
-        return { done: false, nextStart: parseInt(match[2], 10) + 1 };
-      }
+      const m = rangeHeader.match(/bytes=0-(\d+)/);
+      if (m) return { done: false, nextStart: parseInt(m[1], 10) + 1 };
     }
     return { done: false, nextStart: start + chunk.size };
-  } else if (response.status >= 400) {
-    throw new Error(`Upload chunk failed: ${response.status} ${response.statusText}`);
   }
-
-  throw new Error(`Unexpected upload chunk response status: ${response.status}`);
+  // Structured error categorization
+  const status = response.status;
+  if (status === 401) {
+    throw new DriveUploadError("認証が切れました。再認可してください", "auth_expired", status);
+  }
+  if (status === 403) {
+    throw new DriveUploadError("Drive 側で拒否されました (権限・容量・スコープ等)", "forbidden", status);
+  }
+  if (status === 404 || status === 410) {
+    throw new DriveUploadError("アップロード セッションが失効しました。新しい撮影として再アップロードしてください", "session_expired", status);
+  }
+  if (status === 429) {
+    throw new DriveUploadError("Drive API のレート制限に達しました。しばらく待ってから再試行してください", "rate_limited", status);
+  }
+  if (status >= 500 && status < 600) {
+    throw new DriveUploadError("Drive 側の一時的な障害です。再試行してください", "server_error", status);
+  }
+  throw new DriveUploadError(`予期しない応答 (status ${status})`, "unknown", status);
 }
 
 export async function queryResume(
@@ -306,4 +331,34 @@ export async function updateMetadata(
       `Failed to update Drive file metadata: ${response.statusText}`
     );
   }
+}
+
+// Drive ファイル名を変更する (drive.file scope で書込可)。
+export async function renameDriveFile(
+  fileId: string,
+  newName: string,
+  accessToken: string,
+): Promise<{ id: string; name: string }> {
+  const res = await fetch(
+    `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?fields=id,name`,
+    {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ name: newName }),
+    },
+  );
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(
+      `Drive rename failed (${res.status}): ${body.slice(0, 200)}`,
+    );
+  }
+  const data = (await res.json()) as { id?: string; name?: string };
+  if (!data.id || !data.name) {
+    throw new Error("Drive rename returned no id/name");
+  }
+  return { id: data.id, name: data.name };
 }

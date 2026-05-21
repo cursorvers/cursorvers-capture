@@ -345,6 +345,12 @@ export default function HistoryPage(): JSX.Element {
       <CaptureDetailSheet
         entry={selected}
         onClose={() => setSelected(null)}
+        onRenamed={(fileId, newName) => {
+          setEntries((prev) =>
+            prev.map((e) => (e.id === fileId ? { ...e, name: newName } : e)),
+          );
+          setSelected((s) => (s && s.id === fileId ? { ...s, name: newName } : s));
+        }}
       />
     </div>
   );

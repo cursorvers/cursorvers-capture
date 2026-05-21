@@ -271,6 +271,52 @@ function HomeContent(): JSX.Element {
         </Link>
       </section>
 
+      {/* Subtle collapsible disclosure (replaces previous amber banner) */}
+      <details className="group rounded-2xl border border-hairline bg-ink-900/40 backdrop-blur-sm transition-colors hover:border-white/15 open:border-white/15">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-2.5 text-[11.5px] text-ink-400 transition-colors hover:text-ink-200 group-open:text-ink-200 [&::-webkit-details-marker]:hidden">
+          <span className="inline-flex items-center gap-2">
+            <svg
+              aria-hidden
+              viewBox="0 0 16 16"
+              className="h-3.5 w-3.5 shrink-0 opacity-70 group-open:opacity-100"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <circle cx="8" cy="8" r="6.5" />
+              <line x1="8" y1="7" x2="8" y2="11" />
+              <circle cx="8" cy="4.8" r="0.6" fill="currentColor" />
+            </svg>
+            <span className="tracking-tight">本アプリは整理ツールです（電子帳簿保存非対応）</span>
+          </span>
+          <svg
+            aria-hidden
+            viewBox="0 0 16 16"
+            className="h-3 w-3 shrink-0 opacity-50 transition-transform group-open:rotate-90"
+            fill="currentColor"
+          >
+            <path d="M6 4l4 4-4 4V4z" />
+          </svg>
+        </summary>
+        <div className="border-t border-hairline/60 px-4 py-3 text-[11px] leading-relaxed text-ink-400">
+          <p>
+            撮影した領収書・名刺・メモを Google Drive へ整理するための補助ツールです。
+            電子帳簿保存法のスキャナ保存要件は満たさないため、紙の原本は別途保管してください。
+            正式な電子保存が必要な場合は freee 受領 BOX 等を併用してください。
+          </p>
+          <p className="mt-2">
+            <a
+              href="/terms"
+              className="text-ink-300 underline decoration-dotted underline-offset-4 transition hover:text-ink-100"
+            >
+              利用規約 §1 を読む
+            </a>
+          </p>
+        </div>
+      </details>
+
       {/* Sign-in + Capture stack */}
       <InviteBanner />
       <section className="flex flex-col gap-3">

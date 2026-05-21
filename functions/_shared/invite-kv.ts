@@ -19,6 +19,7 @@ export type ClaimedEmail = {
   email: string;
   source_token: string;
   claimed_at: string;
+  trial_ends_at?: string;        // ISO datetime; 未設定 = 無期限 (legacy)
 };
 
 const TOKEN_PREFIX = "invite:";
@@ -52,24 +53,57 @@ export async function putToken(
   await kv.put(tokenKey(record.token), JSON.stringify(record));
 }
 
+export async function getClaimedEmail(
+  kv: KVNamespace,
+  email: string,
+): Promise<ClaimedEmail | null> {
+  if (!email) return null;
+  const raw = await kv.get(emailKey(email));
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as ClaimedEmail;
+  } catch {
+    return null;
+  }
+}
+
 export async function isEmailClaimed(
   kv: KVNamespace,
   email: string,
 ): Promise<boolean> {
-  if (!email) return false;
-  const raw = await kv.get(emailKey(email));
-  return raw !== null;
+  // 後方互換 wrapper: claim 済かどうかだけ判定 (trial 期限は見ない)
+  const rec = await getClaimedEmail(kv, email);
+  return rec !== null;
+}
+
+/**
+ * Trial が有効か (= 利用可能か) を判定。
+ *   - trial_ends_at が無い: legacy / 無期限扱い → true
+ *   - trial_ends_at が未来: 期間内 → true
+ *   - trial_ends_at が過去: 期限切れ → false
+ */
+export function isTrialActive(record: ClaimedEmail): boolean {
+  if (!record.trial_ends_at) return true;
+  const end = Date.parse(record.trial_ends_at);
+  if (Number.isNaN(end)) return true; // 形式不正は legacy 扱い
+  return end > Date.now();
 }
 
 export async function claimEmail(
   kv: KVNamespace,
   email: string,
   source_token: string,
+  trialDays?: number,
 ): Promise<void> {
+  const trialEndsAt =
+    trialDays && trialDays > 0
+      ? new Date(Date.now() + trialDays * 24 * 60 * 60 * 1000).toISOString()
+      : undefined;
   const record: ClaimedEmail = {
     email: email.trim().toLowerCase(),
     source_token,
     claimed_at: new Date().toISOString(),
+    ...(trialEndsAt ? { trial_ends_at: trialEndsAt } : {}),
   };
   await kv.put(emailKey(email), JSON.stringify(record));
 }

@@ -39,16 +39,68 @@ export default function PrivacyPage() {
           本アプリは、Google OAuth / Google Identity Services を通じて
           Google アカウントの識別に必要な範囲の情報にアクセスします。OAuth
           スコープは
-          <strong className="text-ink-50">drive.file</strong>
-          等、ファイル作成・参照に必要な最小限に限定します。クライアント
-          （ブラウザ）から Google Drive API
-          へ直接アップロードする構成であり、画像バイナリが当社サーバーを経由
-          して恒常的に保存されることはありません（運用上のログ・メトリクスを
-          除く）。
+          <strong className="text-ink-50">openid email / drive.file / drive.metadata.readonly</strong>
+          に限定し、メールアドレス取得、本アプリが作成・選択したファイルの
+          読み書き、フォルダ一覧の閲覧に必要な最小限の権限のみを要求します。
         </p>
         <p>
-          端末内では、フォルダ ID や端末識別子、オプション機能の ON/OFF 等を
-          IndexedDB / localStorage に保存することがあります。
+          撮影した画像は、ユーザーのブラウザから Google Drive API
+          へ直接アップロードされます。画像バイナリが当社サーバーに
+          恒常的に保存されることはありません（運用上のログ・メトリクスを除く）。
+        </p>
+
+        <h2 className="pt-6 font-display text-lg font-semibold text-ink-50">
+          2-A. AI 解析のための外部送信（重要）
+        </h2>
+        <p>
+          AI 補助機能（書類種別判定・OCR・構造化抽出）を有効にした場合、
+          撮影画像および付随情報は、当社の Codex Gateway（Cloudflare Workers）
+          を経由して
+          <strong className="text-ink-50">
+            Google 社の Gemini API（米国）
+          </strong>
+          へ送信されます。これは個人情報保護法上の
+          <strong className="text-ink-50">外国にある第三者への提供／委託</strong>
+          に該当する可能性があります。
+        </p>
+        <ul className="list-inside list-disc space-y-2 pl-2">
+          <li>送信先: Google LLC 運営の Gemini API エンドポイント</li>
+          <li>送信内容: 撮影画像、推定タスク種別、文字数制限内のテキスト</li>
+          <li>
+            利用目的: 書類種別の自動判定、ベンダー名・金額・日付等の構造化抽出
+          </li>
+          <li>
+            保存方針: 当社側で画像本体を恒常保存しません。Google 側の保持
+            ポリシーは{" "}
+            <a
+              href="https://ai.google.dev/gemini-api/terms"
+              target="_blank"
+              rel="noreferrer noopener"
+              className="text-accent-soft underline-offset-2 hover:underline"
+            >
+              Gemini API Terms
+            </a>{" "}
+            に従います。
+          </li>
+          <li>
+            AI 補助は
+            <strong className="text-ink-50">既定で OFF</strong>{" "}
+            です。設定画面から ON/OFF を切り替えできます。OFF
+            の場合、AI 送信は行われません。
+          </li>
+        </ul>
+        <p>
+          AI 解析結果（商店名・金額・日付等）の正確性は保証されません。最終的な
+          内容確認はユーザーご自身の責任で行ってください。
+        </p>
+
+        <h2 className="pt-6 font-display text-lg font-semibold text-ink-50">
+          2-B. 端末内ストレージ
+        </h2>
+        <p>
+          端末内では、フォルダ ID や端末識別子、オプション機能の ON/OFF、
+          サムネイル等を IndexedDB / localStorage に保存します。
+          これらはユーザーの端末からブラウザの設定で削除できます。
         </p>
 
         <h2 className="pt-6 font-display text-lg font-semibold text-ink-50">

@@ -5,11 +5,13 @@ export type AuthRecord = {
   access_token: string;
   expires_at: number;
   scope: "drive.file";
+  granted_scopes?: string[];
 };
 
 type TokenCallbackResponse = {
   access_token?: string;
   expires_in?: string | number;
+  scope?: string;
   error?: string;
   error_description?: string;
 };
@@ -110,7 +112,7 @@ async function requestToken(prompt: "consent" | ""): Promise<{
   return new Promise((resolve, reject) => {
     const client = oauth2.initTokenClient({
       client_id: clientId,
-      scope: "https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/drive.metadata.readonly",
+      scope: "openid email https://www.googleapis.com/auth/drive.file",
       callback: (resp) => {
         if (resp.error) {
           const detail = resp.error_description
@@ -124,11 +126,15 @@ async function requestToken(prompt: "consent" | ""): Promise<{
           return;
         }
         const expiresIn = parseExpiresIn(resp.expires_in);
+        const grantedScopes = typeof resp.scope === "string"
+          ? resp.scope.split(/\s+/).filter(Boolean)
+          : undefined;
         const record: AuthRecord = {
           id: "current",
           access_token: resp.access_token,
           expires_at: Date.now() + expiresIn * 1000,
           scope: "drive.file",
+          granted_scopes: grantedScopes,
         };
         void idbPut("auth", record)
           .then(async () => {
@@ -211,6 +217,19 @@ export async function getCurrentToken(): Promise<string | null> {
   return record.access_token;
 }
 
+export async function getGrantedScopes(): Promise<string[] | null> {
+  requireBrowser();
+  const record = await idbGet<AuthRecord>("auth", "current");
+  if (!record) return null;
+  return record.granted_scopes ?? null;
+}
+
+export async function hasScope(scope: string): Promise<boolean> {
+  const scopes = await getGrantedScopes();
+  if (!scopes) return false;
+  return scopes.includes(scope);
+}
+
 
 // ───────────────────────────────────────────────────────────────────
 // iOS-safe synchronous popup path.
@@ -251,7 +270,7 @@ export function prepareTokenClient(
   const clientId = getClientId();
   return oauth2.initTokenClient({
     client_id: clientId,
-    scope: "https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/drive.metadata.readonly",
+    scope: "openid email https://www.googleapis.com/auth/drive.file",
     callback: (resp) => {
       if (resp.error) {
         const detail = resp.error_description
@@ -271,11 +290,15 @@ export function prepareTokenClient(
       // blocking is no longer a concern at this point.
       void (async () => {
         try {
+          const grantedScopes = typeof resp.scope === "string"
+            ? resp.scope.split(/\s+/).filter(Boolean)
+            : undefined;
           const record: AuthRecord = {
             id: "current",
             access_token: accessToken,
             expires_at: Date.now() + expiresIn * 1000,
             scope: "drive.file",
+            granted_scopes: grantedScopes,
           };
           await idbPut("auth", record);
           const userInfoRes = await fetch(

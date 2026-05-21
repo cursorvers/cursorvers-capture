@@ -9,6 +9,8 @@ import {
 } from "react";
 import { DocRoutingPanel } from "@/app/components/DocRoutingPanel";
 import { FolderShareSheet } from "@/app/components/FolderShareSheet";
+import { getFolderMeta } from "@/app/lib/doc-routing";
+import { pickFolder } from "@/app/lib/picker";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Suspense } from "react";
@@ -151,6 +153,7 @@ function ClipboardIcon(): JSX.Element {
 function SettingsContent(): JSX.Element {
   const router = useRouter();
   const [folderId, setFolderId] = useState<string | null>(null);
+  const [mainFolderName, setMainFolderName] = useState<string | null>(null);
   const [mainFolderShareOpen, setMainFolderShareOpen] = useState(false);
   const [folderInput, setFolderInput] = useState("");
   const [folderHistory, setFolderHistory] = useState<
@@ -163,7 +166,10 @@ function SettingsContent(): JSX.Element {
   const [aiAssist, setAiAssist] = useState(false);
   const [driveConnected, setDriveConnected] = useState(false);
   const [helperOpen, setHelperOpen] = useState(false);
+  const [iosGuideOpen, setIosGuideOpen] = useState(false);
+  const [installPlatform, setInstallPlatform] = useState<"ios" | "android">("ios");
   const [pasteBusy, setPasteBusy] = useState(false);
+  const [pickerBusy, setPickerBusy] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -221,6 +227,33 @@ function SettingsContent(): JSX.Element {
     };
   }, []);
 
+  // メインフォルダの名前を取得。Picker callback で取れた name が優先、
+  // 取れない場合は best-effort で getFolderMeta (drive.file 経由で picker 選択済 / app 作成済なら成功)
+  useEffect(() => {
+    let cancelled = false;
+    if (!folderId) {
+      setMainFolderName(null);
+      return;
+    }
+    // すでに picker callback で name 入っている場合は再 fetch しない
+    if (mainFolderName) return;
+    void (async () => {
+      const tok = await getCurrentToken();
+      if (!tok || cancelled) return;
+      // drive.file 経由でも picker 選択 / app 作成 folder なら取れる (best-effort)
+      const meta = await getFolderMeta(folderId, tok).catch(() => null);
+      if (!cancelled && meta?.name) {
+        setMainFolderName(meta.name);
+      }
+      // null のままなら ID 表示で fallback (UI 側で handle)
+    })();
+    return () => {
+      cancelled = true;
+    };
+  // mainFolderName は意図的に dep から除外 (state set 後の loop 回避)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [folderId]);
+
   const applyFolder = useCallback(
     async (rawOrId: string, opts?: { silent?: boolean }) => {
       const extracted = extractFolderId(rawOrId);
@@ -241,35 +274,83 @@ function SettingsContent(): JSX.Element {
       setStatusMessage(
         `保存先フォルダを「…${extracted.slice(-8)}」に設定しました。`,
       );
+      // 名前は別 useEffect で fetch されるが、メッセージも置き換えるため再 fetch
+      void (async () => {
+        const tok = await getCurrentToken();
+        if (!tok) return;
+        const meta = await getFolderMeta(extracted, tok).catch(() => null);
+        if (meta?.name) {
+          setStatusMessage(`保存先フォルダを「${meta.name}」に設定しました。`);
+        }
+      })();
     },
     [],
   );
 
   const handlePasteFromClipboard = useCallback(async () => {
+    const focusInput = () => {
+      const el = document.getElementById("folder-picker-input");
+      if (el instanceof HTMLInputElement) {
+        el.focus();
+        el.select();
+      }
+    };
     if (
       typeof navigator === "undefined" ||
       !navigator.clipboard?.readText
     ) {
       setStatusMessage(
-        "クリップボードへのアクセスがこのブラウザでは利用できません。手入力で貼り付けてください。",
+        "このブラウザではボタン貼り付けが使えません。下の入力欄を長押しして「ペースト」を選んでください。",
       );
+      focusInput();
       return;
     }
     setPasteBusy(true);
     try {
       const text = await navigator.clipboard.readText();
       if (!text || text.trim() === "") {
-        setStatusMessage("クリップボードが空のようです。");
+        setStatusMessage("クリップボードが空のようです。下の入力欄に直接貼り付けてもらえます。");
+        focusInput();
         return;
       }
       await applyFolder(text);
+    } catch {
+      // iOS Chrome / Firefox 等は readText を拒否することがある
+      setStatusMessage(
+        "貼り付けがブロックされました。下の入力欄を長押しして「ペースト」を選んでください。",
+      );
+      focusInput();
+    } finally {
+      setPasteBusy(false);
+    }
+  }, [applyFolder]);
+
+  const handlePickFromDrive = useCallback(async () => {
+    setPickerBusy(true);
+    setStatusMessage(null);
+    try {
+      const tok = await getCurrentToken();
+      if (!tok) {
+        setStatusMessage(
+          "Google サインインの有効期限が切れています。設定→再認可 をお試しください。",
+        );
+        return;
+      }
+      const picked = await pickFolder(tok);
+      if (picked) {
+        // Picker callback で取れた folder.name を即座に state に反映
+        setMainFolderName(picked.name);
+        await applyFolder(picked.id);
+      } else {
+        setStatusMessage("フォルダ選択をキャンセルしました。");
+      }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       setStatusMessage(
-        `クリップボードの読み取りに失敗しました (${msg}). ブラウザの貼り付け許可を確認してください。`,
+        `Drive ピッカーの起動に失敗しました (${msg}). 下の入力欄から URL を貼り付けてください。`,
       );
     } finally {
-      setPasteBusy(false);
+      setPickerBusy(false);
     }
   }, [applyFolder]);
 
@@ -431,12 +512,23 @@ function SettingsContent(): JSX.Element {
           </p>
         </div>
 
-        {/* Primary fast-path: paste from clipboard */}
+        {/* Primary fast-path: Google Picker (Drive と同じ UI) */}
+        <button
+          type="button"
+          onClick={() => void handlePickFromDrive()}
+          disabled={pickerBusy || !driveConnected}
+          className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-accent-grad px-5 text-[14px] font-semibold tracking-tight text-white shadow-glow transition active:scale-[0.98] hover:-translate-y-px disabled:opacity-60"
+        >
+          <DriveIcon />
+          {pickerBusy ? "Drive を開いています…" : "Drive から選ぶ"}
+        </button>
+
+        {/* Secondary: paste from clipboard */}
         <button
           type="button"
           onClick={() => void handlePasteFromClipboard()}
           disabled={pasteBusy}
-          className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-accent-grad px-5 text-[14px] font-semibold tracking-tight text-white shadow-glow transition active:scale-[0.98] hover:-translate-y-px disabled:opacity-60"
+          className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-2xl border border-hairline bg-ink-900/70 px-5 text-[13px] font-medium text-ink-100 transition hover:border-white/15 hover:bg-ink-900 disabled:opacity-60"
         >
           <ClipboardIcon />
           {pasteBusy ? "貼り付け中…" : "クリップボードから貼り付け"}
@@ -448,7 +540,7 @@ function SettingsContent(): JSX.Element {
             htmlFor="folder-picker-input"
             className="text-[11px] font-medium tracking-tight text-ink-400"
           >
-            または手動で URL / ID を入力
+            または下の欄を長押し → 「ペースト」で URL を貼り付け
           </label>
           <input
             id="folder-picker-input"
@@ -557,33 +649,42 @@ function SettingsContent(): JSX.Element {
           >
             <path d="M6 4l4 4-4 4V4z" />
           </svg>
-          <span>フォルダ URL の取得方法</span>
+          <span>うまく行かない時 / 旧パス (URL 貼り付け)</span>
         </button>
         {helperOpen ? (
-          <ol className="-mt-3 list-decimal space-y-1.5 rounded-xl border border-hairline bg-ink-950/50 px-5 py-3.5 pl-7 text-[12px] leading-relaxed text-ink-300">
-            <li>
-              <a
-                href="https://drive.google.com/"
-                target="_blank"
-                rel="noreferrer noopener"
-                className="text-accent-soft underline-offset-2 hover:underline"
-              >
-                drive.google.com
-              </a>{" "}
-              で保存したい folder を開く (or 新規作成)
-            </li>
-            <li>
-              スマホ Drive アプリなら folder 右上の {"…"} →「リンクをコピー」
-            </li>
-            <li>
-              ブラウザの URL{" "}
-              <code className="rounded bg-ink-800 px-1.5 py-0.5 text-[10.5px] text-ink-200">
-                https://drive.google.com/drive/folders/…
-              </code>{" "}
-              でも OK
-            </li>
-            <li>上の 📋 ボタンで貼り付け → 自動的に ID が抽出されます</li>
-          </ol>
+          <div className="-mt-3 space-y-3 rounded-xl border border-hairline bg-ink-950/50 px-5 py-3.5 text-[12px] leading-relaxed text-ink-300">
+            <p>
+              <span className="font-medium text-ink-100">推奨:</span>{" "}
+              上の「📁 Drive から選ぶ」ボタンを使ってください。
+              <br />
+              URL コピーは不要で、Drive の中から直接フォルダを選択できます。
+            </p>
+            <p className="border-t border-hairline pt-3">
+              <span className="font-medium text-ink-100">URL 貼り付けで指定する場合:</span>
+            </p>
+            <ol className="list-decimal space-y-1.5 pl-5">
+              <li>
+                <a
+                  href="https://drive.google.com/"
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  className="text-accent-soft underline-offset-2 hover:underline"
+                >
+                  drive.google.com
+                </a>{" "}
+                を別タブで開き、対象フォルダの URL をコピー
+              </li>
+              <li>
+                スマホ Drive アプリなら folder の {"…"} メニュー → 「リンクをコピー」
+              </li>
+              <li>
+                下の入力欄を長押し → 「ペースト」を選ぶ
+              </li>
+              <li>
+                「このフォルダを選択」ボタンを押す
+              </li>
+            </ol>
+          </div>
         ) : null}
       </section>
 
@@ -625,7 +726,10 @@ function SettingsContent(): JSX.Element {
               <span className="text-[11px] uppercase tracking-[0.14em] text-ink-400">
                 MAIN FOLDER
               </span>
-              <span className="truncate text-[13px] text-ink-100">{folderId}</span>
+              <span className="truncate text-[14px] font-medium text-ink-100">
+                {mainFolderName ? `📁 ${mainFolderName}` : "📁 (名前を取得中…)"}
+              </span>
+              <span className="truncate text-[10px] text-ink-500">{folderId}</span>
             </div>
             <button
               type="button"
@@ -644,7 +748,7 @@ function SettingsContent(): JSX.Element {
         />
         <DocRoutingPanel
           mainFolderId={folderId}
-          mainFolderLabel={null}
+          mainFolderLabel={mainFolderName}
         />
       </Group>
 
@@ -672,6 +776,115 @@ function SettingsContent(): JSX.Element {
             </button>
           }
         />
+      </Group>
+
+      {/* ─────────── ホーム画面にインストール (iOS / Android) ─────────── */}
+      <Group title="ホーム画面にインストール (任意)">
+        <button
+          type="button"
+          onClick={() => setIosGuideOpen((v) => !v)}
+          aria-expanded={iosGuideOpen}
+          className="flex w-full items-center justify-between gap-2 rounded-2xl border border-hairline bg-ink-800/30 px-4 py-3 text-left text-[13px] text-ink-200 hover:bg-ink-800/50"
+        >
+          <span>📱 アプリ風に使うための追加手順</span>
+          <span className="text-[11px] text-ink-400">{iosGuideOpen ? "閉じる" : "開く"}</span>
+        </button>
+        {iosGuideOpen ? (
+          <div className="space-y-4 rounded-2xl border border-hairline bg-ink-950/40 px-4 py-4 text-[12px] leading-relaxed text-ink-300">
+            {/* Tab switcher */}
+            <div className="inline-flex rounded-full border border-hairline bg-ink-900/60 p-0.5">
+              <button
+                type="button"
+                onClick={() => setInstallPlatform("ios")}
+                className={`rounded-full px-3 py-1 text-[12px] font-medium transition ${
+                  installPlatform === "ios"
+                    ? "bg-ink-700 text-ink-50"
+                    : "text-ink-400 hover:text-ink-200"
+                }`}
+              >
+                🍎 iPhone
+              </button>
+              <button
+                type="button"
+                onClick={() => setInstallPlatform("android")}
+                className={`rounded-full px-3 py-1 text-[12px] font-medium transition ${
+                  installPlatform === "android"
+                    ? "bg-ink-700 text-ink-50"
+                    : "text-ink-400 hover:text-ink-200"
+                }`}
+              >
+                🤖 Android
+              </button>
+            </div>
+
+            {installPlatform === "ios" ? (
+              <div className="space-y-3">
+                <p className="text-ink-100">
+                  <strong>iOS の制約上、ホーム画面追加は Safari からのみ可能です。</strong>
+                </p>
+                <ol className="list-decimal space-y-2 pl-5">
+                  <li>
+                    <strong>iPhone の Safari</strong> を起動 (Chrome ではなく Safari)
+                  </li>
+                  <li>
+                    アドレスバーに{" "}
+                    <code className="rounded bg-ink-800 px-1.5 py-0.5 text-[11px] text-ink-100">
+                      capture.cursorvers.jp
+                    </code>{" "}
+                    を入力
+                  </li>
+                  <li>
+                    Safari 下部の{" "}
+                    <strong>共有ボタン (□+↑)</strong> をタップ
+                  </li>
+                  <li>
+                    スクロールして「<strong>ホーム画面に追加</strong>」を選択
+                  </li>
+                  <li>
+                    プレビュー名「Cursorvers Capture」を確認 → 「追加」
+                  </li>
+                  <li>
+                    ホーム画面のアイコンから起動すれば、ブラウザ UI 無しのフルスクリーンで使えます
+                  </li>
+                </ol>
+                <p className="rounded-lg border border-hairline/60 bg-ink-900/40 px-3 py-2 text-[11px] text-ink-400">
+                  ⚠️ ホーム画面 PWA は Safari と Cookie が別領域です。初回起動時にもう一度 Google サインインが必要になります (iOS の仕様)。
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <p className="text-ink-100">
+                  <strong>Android は Chrome のままで OK です。</strong>
+                </p>
+                <ol className="list-decimal space-y-2 pl-5">
+                  <li>
+                    <strong>Chrome</strong> で{" "}
+                    <code className="rounded bg-ink-800 px-1.5 py-0.5 text-[11px] text-ink-100">
+                      capture.cursorvers.jp
+                    </code>{" "}
+                    を開く
+                  </li>
+                  <li>
+                    Chrome 右上の{" "}
+                    <strong>「︙」メニュー</strong> をタップ
+                  </li>
+                  <li>
+                    「<strong>アプリをインストール</strong>」または「<strong>ホーム画面に追加</strong>」を選択
+                  </li>
+                  <li>
+                    プレビュー名「Cursorvers Capture」を確認 → 「インストール」
+                  </li>
+                  <li>
+                    ホーム画面のアイコンから起動。ほぼネイティブアプリの感覚で使えます
+                  </li>
+                </ol>
+                <p className="rounded-lg border border-hairline/60 bg-ink-900/40 px-3 py-2 text-[11px] text-ink-400">
+                  ✨ Android では Chrome タブと PWA のサインインが共有されるため、再ログインは不要です。
+                </p>
+              </div>
+            )}
+          </div>
+        ) : null}
       </Group>
 
       {/* ─────────── 詳細 ─────────── */}
@@ -759,6 +972,20 @@ function SettingsContent(): JSX.Element {
         </Link>
       </nav>
     </div>
+  );
+}
+
+
+function DriveIcon(): JSX.Element {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      aria-hidden
+      className="h-4 w-4 shrink-0"
+    >
+      <path d="M7.71 3.5h8.58l5.71 9.89-4.29 7.41h-11.4l-4.29-7.41 5.69-9.89zm.86 1.5L4.16 12.32l3.85 6.68h7.97l3.86-6.68L15.42 5H8.57zm-.5 7.32l3.93-6.82h.04l3.93 6.82h-7.9zm-1.07.5h9.99l-3.98 6.91H10.99l-3.99-6.91z"/>
+    </svg>
   );
 }
 

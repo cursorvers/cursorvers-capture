@@ -20,7 +20,44 @@ export default function TermsPage() {
         </p>
 
         <h2 className="pt-6 font-display text-lg font-semibold text-ink-50">
-          1. 禁止行為
+          1. 本アプリの性質と利用範囲（重要）
+        </h2>
+        <p>
+          本アプリは、ユーザーが撮影した領収書・名刺・メモ等を Google
+          Drive へ整理するための
+          <strong className="text-ink-50">補助的な整理ツール</strong>{" "}
+          です。次の点を明確にします。
+        </p>
+        <ul className="list-inside list-disc space-y-2 pl-2">
+          <li>
+            本アプリは
+            <strong className="text-ink-50">
+              電子帳簿保存法（改正電子帳簿保存法・2024 年 1 月 1 日完全施行）
+              のスキャナ保存要件を満たしません
+            </strong>
+            。認定タイムスタンプ、訂正削除履歴の確認システム、解像度・カラー
+            要件、検索機能等の法定要件に対応していません（JIIMA 認証も未取得）。
+          </li>
+          <li>
+            領収書等の
+            <strong className="text-ink-50">紙原本は、ユーザーの責任で別途保管してください</strong>
+            。本アプリへの保存をもって紙原本を破棄することは、法令違反となる
+            可能性があります。
+          </li>
+          <li>
+            税務申告に用いる正式な電子保存が必要な場合は、JIIMA 認証取得済の
+            別サービス（freee 受領 BOX、Money Forward クラウドファクト、
+            弥生スキャン保存等）をご利用ください。
+          </li>
+          <li>
+            本アプリは、確定申告書類作成のために
+            <strong className="text-ink-50">税理士へ領収書を共有する際の整理・閲覧</strong>
+            、社内での書類分類補助、撮影忘れ防止を主目的とします。
+          </li>
+        </ul>
+
+        <h2 className="pt-6 font-display text-lg font-semibold text-ink-50">
+          2. 禁止行為
         </h2>
         <p>ユーザーは、以下を行ってはなりません。</p>
         <ul className="list-inside list-disc space-y-2 pl-2">
@@ -41,7 +78,7 @@ export default function TermsPage() {
         </ul>
 
         <h2 className="pt-6 font-display text-lg font-semibold text-ink-50">
-          2. AI 機能とモデレーション
+          3. AI 機能とモデレーション
         </h2>
         <p>
           オプションの OCR・音声要約・チャット等は自動処理であり、結果の正確
@@ -55,7 +92,7 @@ export default function TermsPage() {
         </p>
 
         <h2 className="pt-6 font-display text-lg font-semibold text-ink-50">
-          3. 免責・保証の否認
+          4. 免責・保証の否認
         </h2>
         <p>
           本アプリは{" "}
@@ -69,7 +106,7 @@ export default function TermsPage() {
         </p>
 
         <h2 className="pt-6 font-display text-lg font-semibold text-ink-50">
-          4. Phase B・料金
+          5. 料金とプラン
         </h2>
         <p>
           現在は実証・招待制を主とします。将来の{" "}
@@ -80,7 +117,7 @@ export default function TermsPage() {
         </p>
 
         <h2 className="pt-6 font-display text-lg font-semibold text-ink-50">
-          5. 準拠法・裁判管轄
+          6. 準拠法・裁判管轄
         </h2>
         <p>
           本規約は{" "}
@@ -90,7 +127,7 @@ export default function TermsPage() {
         </p>
 
         <h2 className="pt-6 font-display text-lg font-semibold text-ink-50">
-          6. お問い合わせ
+          7. お問い合わせ
         </h2>
         <p>
           <a

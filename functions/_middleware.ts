@@ -4,7 +4,7 @@ import {
   inviteBlockPath,
   getTierForEmail,
 } from "./_shared/invite-gate";
-import { isEmailClaimed } from "./_shared/invite-kv";
+import { getClaimedEmail, isTrialActive } from "./_shared/invite-kv";
 
 interface Env {
   COOKIE_SECRET: string;
@@ -17,9 +17,10 @@ const COOKIE_NAME = "gdrive_email";
 
 function isPublicPath(p: string): boolean {
   return (
+    p === "/" ||
     p.startsWith("/_next") ||
     p.startsWith("/api/me") ||
-    p.startsWith("/api/invite") ||  // invite endpoints は middleware で弾かない
+    p.startsWith("/api/invite") ||
     p === "/favicon.ico" ||
     p === "/manifest.webmanifest" ||
     p === "/sw.js" ||
@@ -29,6 +30,7 @@ function isPublicPath(p: string): boolean {
     p === "/apple-icon.png" ||
     p === "/not-invited" ||
     p === "/full" ||
+    p === "/trial-expired" ||
     p.startsWith("/privacy") ||
     p.startsWith("/terms")
   );
@@ -43,7 +45,9 @@ export const onRequest: PagesFunction<Env> = async (context) => {
 
   const signed = readCookie(request.headers.get("cookie"), COOKIE_NAME);
   if (!signed) {
-    return next();
+    // Protected route で cookie 無し → ホームへ (fail-closed)
+    // 公開 path は isPublicPath で先に early-return 済なのでここには来ない
+    return Response.redirect(`${url.origin}/`, 302);
   }
 
   let email: string | null = null;
@@ -57,32 +61,61 @@ export const onRequest: PagesFunction<Env> = async (context) => {
     return next();
   }
 
-  // 1. 静的 env allowlist
   const envAllowlist = parseInviteAllowlist(env.INVITE_ALLOWLIST);
+  const proUsers = parseInviteAllowlist(env.PRO_USERS);
+  const lower = email.toLowerCase();
 
-  // 2. KV claim 済 allowlist
-  let claimedOk = false;
+  // ─── Bypass 階層 (上から優先) ─────────────────────────
+  // (1) PRO_USERS: 有料・無期限
+  const isPro = proUsers.includes(email) || proUsers.includes(lower);
+
+  // (2) INVITE_ALLOWLIST (env): 内部・admin・無期限
+  const isEnvAllow =
+    envAllowlist.includes(email) || envAllowlist.includes(lower);
+
+  // (3) KV claimed: trial 期限まで free
+  let kvClaimed = false;
+  let trialActive = false;
   if (env.INVITE_KV) {
     try {
-      claimedOk = await isEmailClaimed(env.INVITE_KV, email);
+      const rec = await getClaimedEmail(env.INVITE_KV, email);
+      if (rec) {
+        kvClaimed = true;
+        trialActive = isTrialActive(rec);
+      }
     } catch {
-      claimedOk = false;
+      kvClaimed = false;
     }
   }
 
-  // OR 判定: env allowlist OR KV allowlist
-  const effectiveAllowlist = claimedOk
-    ? [...envAllowlist, email.toLowerCase()]
-    : envAllowlist;
+  // ─── 判定 ─────────────────────────────────────────────
+  if (isPro || isEnvAllow) {
+    // 無期限 bypass
+    const tier = isPro ? "pro" : "free";
+    const response = await next();
+    response.headers.set("X-Tier", tier);
+    return response;
+  }
 
+  if (kvClaimed) {
+    if (trialActive) {
+      // Trial 中: free として通す
+      const response = await next();
+      response.headers.set("X-Tier", "free");
+      return response;
+    }
+    // Trial 切れ: /trial-expired にリダイレクト
+    return Response.redirect(`${url.origin}/trial-expired`, 302);
+  }
+
+  // どの allowlist にも該当しない → /not-invited or /full
+  const effectiveAllowlist = envAllowlist;
   const block = inviteBlockPath(effectiveAllowlist, email);
   if (block) {
     return Response.redirect(`${url.origin}${block}`, 302);
   }
 
-  const proUsers = parseInviteAllowlist(env.PRO_USERS);
   const tier = getTierForEmail(email, effectiveAllowlist, proUsers);
-
   const response = await next();
   if (tier !== "unknown") {
     response.headers.set("X-Tier", tier);
