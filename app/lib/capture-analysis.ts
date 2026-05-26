@@ -105,6 +105,16 @@ export async function analyzeCapture(opts: {
   image: Blob;
   audio?: Blob | null;
 }): Promise<CodexReply> {
+  // 0) Online 状態確認 (Phase 22.2A)
+  if (typeof navigator !== "undefined" && navigator.onLine === false) {
+    throw new CodexAnalysisError(
+      friendlyMessage("network_error"),
+      "network_error",
+      0,
+      true,
+    );
+  }
+
   // 1) Client-side resize で gateway 負荷を緩和 + EXIF strip (Phase 22.1)
   let resizedImage: Blob;
   try {

@@ -10,6 +10,30 @@ const COOKIE_NAME = "gdrive_email";
 const MAX_PAYLOAD_BYTES = 12 * 1024 * 1024;
 
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
+  // Phase 22.2C: CSRF Origin/Referer 検証
+  // Same-origin POST only。Sec-Fetch-Site:cross-site も拒否。
+  const reqUrl = new URL(request.url);
+  const origin = request.headers.get("Origin");
+  const referer = request.headers.get("Referer");
+  const fetchSite = request.headers.get("Sec-Fetch-Site");
+  const sameOriginByHeader =
+    (origin && new URL(origin).origin === reqUrl.origin) ||
+    (referer && new URL(referer).origin === reqUrl.origin);
+  if (fetchSite && fetchSite === "cross-site") {
+    return Response.json(
+      { error: { code: "forbidden", message: "cross-site request rejected", retryable: false } },
+      { status: 403 },
+    );
+  }
+  // Browsers always send Origin on POST → enforce. If both missing, allow
+  // (CLI / health checks) but require Bearer token (we still verify cookie below).
+  if ((origin || referer) && !sameOriginByHeader) {
+    return Response.json(
+      { error: { code: "forbidden", message: "origin mismatch", retryable: false } },
+      { status: 403 },
+    );
+  }
+
   const signed = readCookie(request.headers.get("cookie"), COOKIE_NAME);
   const email = signed ? await verify(signed, env.COOKIE_SECRET).catch(() => null) : null;
   if (!email) {
