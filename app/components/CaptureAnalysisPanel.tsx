@@ -16,6 +16,8 @@ import { CommentThread } from "@/app/components/CommentThread";
 type Props = {
   state: "idle" | "loading" | "ready" | "error";
   analysis: CodexReply | null;
+  onRetry?: () => void;
+  retrying?: boolean;
   error?: string | null;
   driveUrl?: string;
   driveFileId?: string | null;
@@ -75,6 +77,8 @@ export function CaptureAnalysisPanel({
   driveUrl,
   driveFileId,
   originalFilename,
+  onRetry,
+  retrying,
 }: Props): JSX.Element | null {
   const [analysis, setAnalysis] = useState<CodexReply | null>(initialAnalysis);
   useEffect(() => {
@@ -132,11 +136,46 @@ export function CaptureAnalysisPanel({
     return (
       <div className="flex items-start gap-2.5">
         <CodexAvatar />
-        <div className="rounded-2xl rounded-tl-md border border-red-500/30 bg-red-500/5 px-3.5 py-2.5 text-[13px] text-red-200">
-          <p>うまく読み取れませんでした。</p>
-          {error ? (
-            <p className="mt-1 text-[11px] text-red-300/70">{error}</p>
+        <div className="flex-1 rounded-2xl rounded-tl-md border border-hairline bg-ink-800/50 px-3.5 py-3">
+          {/* 部分成功: Drive 保存は完了している */}
+          {driveUrl ? (
+            <p className="mb-2 text-[12px] text-emerald-300/90">
+              ✅ Drive への保存は完了しています
+            </p>
           ) : null}
+          <p className="text-[13px] text-ink-100">
+            ⚠️ AI による整理ができませんでした
+          </p>
+          {error ? (
+            <p className="mt-1.5 text-[11.5px] leading-relaxed text-ink-400">
+              {error.length > 160 ? `${error.slice(0, 160)}…` : error}
+            </p>
+          ) : null}
+          <div className="mt-3 flex flex-wrap gap-2">
+            {onRetry ? (
+              <button
+                type="button"
+                onClick={onRetry}
+                disabled={retrying}
+                className="inline-flex h-8 items-center justify-center rounded-full border border-accent/40 bg-accent/10 px-3 text-[12px] font-medium text-accent-soft transition hover:bg-accent/20 disabled:opacity-50"
+              >
+                {retrying ? "再試行中…" : "🔁 もう一度 AI で整理する"}
+              </button>
+            ) : null}
+            {driveUrl ? (
+              <a
+                href={driveUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex h-8 items-center justify-center rounded-full border border-hairline px-3 text-[12px] text-ink-300 transition hover:text-ink-100"
+              >
+                Drive で開く ↗
+              </a>
+            ) : null}
+          </div>
+          <p className="mt-2 text-[11px] text-ink-500">
+            AI 整理は後からでも実行できます。撮影した画像は Drive 上で安全に保管されています。
+          </p>
         </div>
       </div>
     );

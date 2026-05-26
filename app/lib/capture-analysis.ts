@@ -3,6 +3,39 @@
 // returns a CodexReply with doc-type classification, extracted fields,
 // and Drive-friendly rename/folder suggestions.
 
+import { resizeImageForAI } from "./image-resize";
+
+export type CodexErrorCode =
+  | "gateway_unavailable"
+  | "gateway_timeout"
+  | "rate_limited"
+  | "payload_too_large"
+  | "unauthorized"
+  | "unknown";
+
+export class CodexAnalysisError extends Error {
+  constructor(
+    message: string,
+    public code: CodexErrorCode,
+    public status: number,
+    public retryable: boolean,
+  ) {
+    super(message);
+    this.name = "CodexAnalysisError";
+  }
+}
+
+function classifyErrorStatus(status: number): { code: CodexErrorCode; retryable: boolean } {
+  if (status === 401) return { code: "unauthorized", retryable: false };
+  if (status === 413) return { code: "payload_too_large", retryable: false };
+  if (status === 429) return { code: "rate_limited", retryable: true };
+  if (status === 504) return { code: "gateway_timeout", retryable: true };
+  if (status === 502 || status === 503) return { code: "gateway_unavailable", retryable: true };
+  if (status >= 500) return { code: "gateway_unavailable", retryable: true };
+  return { code: "unknown", retryable: false };
+}
+
+
 export type CodexExtracted = {
   vendor?: string;
   amount?: number;
@@ -45,22 +78,63 @@ export async function analyzeCapture(opts: {
   image: Blob;
   audio?: Blob | null;
 }): Promise<CodexReply> {
-  const image_base64 = await blobToBase64(opts.image);
+  // 1) Client-side resize で gateway 負荷を緩和 (Phase 22c)
+  const resizedImage = await resizeImageForAI(opts.image);
+  const image_base64 = await blobToBase64(resizedImage);
   const audio_base64 = opts.audio ? await blobToBase64(opts.audio) : undefined;
   const payload = {
     image_base64,
-    image_mime: opts.image.type || "image/jpeg",
+    image_mime: resizedImage.type || opts.image.type || "image/jpeg",
     audio_base64,
     audio_mime: opts.audio?.type,
   };
-  const res = await fetch("/api/codex/analyze", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-  if (!res.ok) {
-    const body = await res.text();
-    throw new Error(`Codex unreachable (${res.status}): ${body.slice(0, 200)}`);
+
+  // 2) /api/codex/analyze に POST。429/5xx は 1 回だけ retry (exponential backoff: 1.5s)
+  let res: Response | null = null;
+  let lastStatus = 0;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    res = await fetch("/api/codex/analyze", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    lastStatus = res.status;
+    if (res.ok) break;
+    const { retryable } = classifyErrorStatus(res.status);
+    if (!retryable || attempt > 0) break;
+    await new Promise((r) => setTimeout(r, 1500));
+  }
+  if (!res || !res.ok) {
+    const status = lastStatus || (res ? res.status : 0);
+    const { code, retryable } = classifyErrorStatus(status);
+    // upstream body は JSON / HTML 両対応。エラーメッセージは code 別に決める。
+    let detail = "";
+    if (res) {
+      try {
+        const text = await res.text();
+        const parsed = (() => {
+          try { return JSON.parse(text); } catch { return null; }
+        })();
+        if (parsed && typeof parsed.error?.message === "string") {
+          detail = parsed.error.message;
+        }
+      } catch {
+        /* ignore */
+      }
+    }
+    const friendly =
+      code === "gateway_unavailable"
+        ? "AI 解析サーバーが混み合っています。少し待ってから再試行してください。"
+        : code === "gateway_timeout"
+          ? "AI 解析がタイムアウトしました。画像が大きい可能性があります。"
+          : code === "rate_limited"
+            ? "短時間にリクエストが多すぎます。少し待ってから再試行してください。"
+            : code === "payload_too_large"
+              ? "画像サイズが上限を超えています。"
+              : code === "unauthorized"
+                ? "サインインが切れています。再認可してください。"
+                : "AI 解析でエラーが発生しました。再試行してください。";
+    throw new CodexAnalysisError(`${friendly}${detail ? ` (${detail.slice(0, 80)})` : ""}`, code, status, retryable);
   }
   return (await res.json()) as CodexReply;
 }

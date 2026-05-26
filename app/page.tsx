@@ -66,6 +66,9 @@ function HomeContent(): JSX.Element {
     drive_name: string;
     drive_url: string;
     state: "loading" | "ready" | "error";
+    image?: Blob | null;
+    audio?: Blob | null;
+    retrying?: boolean;
     analysis: CaptureAnalysis | null;
     error: string | null;
   };
@@ -131,6 +134,60 @@ function HomeContent(): JSX.Element {
     };
   }, []);
 
+  const handleRetryAnalysis = useCallback(
+    async (fileId: string): Promise<void> => {
+      setCaptures((prev) =>
+        prev.map((c) =>
+          c.file_id === fileId
+            ? { ...c, state: "loading" as const, error: null, retrying: true }
+            : c,
+        ),
+      );
+      const target = captures.find((c) => c.file_id === fileId);
+      const blob = target?.image;
+      const audioBlob = target?.audio ?? null;
+      if (!blob) {
+        setCaptures((prev) =>
+          prev.map((c) =>
+            c.file_id === fileId
+              ? {
+                  ...c,
+                  state: "error" as const,
+                  error: "画像が見つかりません。もう一度撮影してください。",
+                  retrying: false,
+                }
+              : c,
+          ),
+        );
+        return;
+      }
+      try {
+        const result = await analyzeCapture({ image: blob, audio: audioBlob });
+        const tok = await getCurrentToken();
+        if (tok) {
+          void saveAnalysisToDrive(fileId, tok, result).catch(() => undefined);
+        }
+        setCaptures((prev) =>
+          prev.map((c) =>
+            c.file_id === fileId
+              ? { ...c, state: "ready" as const, analysis: result, retrying: false }
+              : c,
+          ),
+        );
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        setCaptures((prev) =>
+          prev.map((c) =>
+            c.file_id === fileId
+              ? { ...c, state: "error" as const, error: msg, retrying: false }
+              : c,
+          ),
+        );
+      }
+    },
+    [captures],
+  );
+
   const handleCaptured = useCallback(
     async (
       blob: Blob,
@@ -168,6 +225,8 @@ function HomeContent(): JSX.Element {
           state: "loading",
           analysis: null,
           error: null,
+          image: blob,
+          audio: audioBlob ?? null,
         };
         setCaptures((prev) => [newInflight, ...prev].slice(0, 5));
         void (async () => {
@@ -361,6 +420,14 @@ function HomeContent(): JSX.Element {
             driveUrl={c.drive_url}
             driveFileId={c.file_id}
             originalFilename={c.drive_name}
+            retrying={c.retrying}
+            onRetry={
+              c.image
+                ? () => {
+                    handleRetryAnalysis(c.file_id);
+                  }
+                : undefined
+            }
           />
         ))}
       </section>
