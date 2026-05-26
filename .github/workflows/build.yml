@@ -1,10 +1,12 @@
+# Build verification CI — runs on every push/PR to master
+# Phase 22 (2026-05-26): re-registered after GHA dispatch 500 issue
 name: Build verification
 
 on:
   push:
-    branches: [master]
+    branches: [master, main]
   pull_request:
-    branches: [master]
+    branches: [master, main]
   workflow_dispatch:
 
 jobs:
