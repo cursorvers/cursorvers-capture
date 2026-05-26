@@ -3,7 +3,7 @@
 // returns a CodexReply with doc-type classification, extracted fields,
 // and Drive-friendly rename/folder suggestions.
 
-import { resizeImageForAI } from "./image-resize";
+import { resizeImageForAI, ImageResizeError } from "./image-resize";
 
 export type CodexErrorCode =
   | "gateway_unavailable"
@@ -11,6 +11,9 @@ export type CodexErrorCode =
   | "rate_limited"
   | "payload_too_large"
   | "unauthorized"
+  | "network_error"
+  | "image_too_large"
+  | "image_decode_failed"
   | "unknown";
 
 export class CodexAnalysisError extends Error {
@@ -26,6 +29,7 @@ export class CodexAnalysisError extends Error {
 }
 
 function classifyErrorStatus(status: number): { code: CodexErrorCode; retryable: boolean } {
+  if (status === 0) return { code: "network_error", retryable: true };
   if (status === 401) return { code: "unauthorized", retryable: false };
   if (status === 413) return { code: "payload_too_large", retryable: false };
   if (status === 429) return { code: "rate_limited", retryable: true };
@@ -33,6 +37,29 @@ function classifyErrorStatus(status: number): { code: CodexErrorCode; retryable:
   if (status === 502 || status === 503) return { code: "gateway_unavailable", retryable: true };
   if (status >= 500) return { code: "gateway_unavailable", retryable: true };
   return { code: "unknown", retryable: false };
+}
+
+function friendlyMessage(code: CodexErrorCode): string {
+  switch (code) {
+    case "gateway_unavailable":
+      return "AI 解析サーバーが混み合っています。少し待ってから再試行してください。";
+    case "gateway_timeout":
+      return "AI 解析がタイムアウトしました。画像が大きい可能性があります。";
+    case "rate_limited":
+      return "短時間にリクエストが多すぎます。少し待ってから再試行してください。";
+    case "payload_too_large":
+      return "画像サイズが上限を超えています。";
+    case "unauthorized":
+      return "サインインが切れています。設定→再認可 をお試しください。";
+    case "network_error":
+      return "ネットワークに接続できません。電波・Wi-Fi をご確認ください。";
+    case "image_too_large":
+      return "画像が大きすぎます。Camera 設定で解像度を下げてみてください。";
+    case "image_decode_failed":
+      return "画像のデコードに失敗しました。別の写真でお試しください。";
+    default:
+      return "AI 解析でエラーが発生しました。再試行してください。";
+  }
 }
 
 
@@ -78,8 +105,18 @@ export async function analyzeCapture(opts: {
   image: Blob;
   audio?: Blob | null;
 }): Promise<CodexReply> {
-  // 1) Client-side resize で gateway 負荷を緩和 (Phase 22c)
-  const resizedImage = await resizeImageForAI(opts.image);
+  // 1) Client-side resize で gateway 負荷を緩和 + EXIF strip (Phase 22.1)
+  let resizedImage: Blob;
+  try {
+    resizedImage = await resizeImageForAI(opts.image);
+  } catch (e) {
+    if (e instanceof ImageResizeError) {
+      const code: CodexErrorCode =
+        e.code === "too_large_after_resize" ? "image_too_large" : "image_decode_failed";
+      throw new CodexAnalysisError(friendlyMessage(code), code, 0, false);
+    }
+    throw new CodexAnalysisError(friendlyMessage("unknown"), "unknown", 0, false);
+  }
   const image_base64 = await blobToBase64(resizedImage);
   const audio_base64 = opts.audio ? await blobToBase64(opts.audio) : undefined;
   const payload = {
@@ -89,27 +126,63 @@ export async function analyzeCapture(opts: {
     audio_mime: opts.audio?.type,
   };
 
-  // 2) /api/codex/analyze に POST。429/5xx は 1 回だけ retry (exponential backoff: 1.5s)
+  // 2) /api/codex/analyze に POST。429/5xx/network は最大 3 attempts (backoff 1.5s, 3s)
+  const MAX_ATTEMPTS = 3;
   let res: Response | null = null;
   let lastStatus = 0;
-  for (let attempt = 0; attempt < 2; attempt++) {
-    res = await fetch("/api/codex/analyze", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    lastStatus = res.status;
-    if (res.ok) break;
-    const { retryable } = classifyErrorStatus(res.status);
-    if (!retryable || attempt > 0) break;
-    await new Promise((r) => setTimeout(r, 1500));
+  let networkErr: Error | null = null;
+  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+    try {
+      res = await fetch("/api/codex/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+        // 302 を follow せず手動で扱う → cookie 切れの HTML parse 事故防止
+        redirect: "manual",
+      });
+      lastStatus = res.status;
+      networkErr = null;
+    } catch (e) {
+      // network error / aborted
+      networkErr = e instanceof Error ? e : new Error(String(e));
+      res = null;
+      lastStatus = 0;
+    }
+
+    if (res && res.ok) {
+      // content-type が JSON 以外なら認証 redirect の可能性 → unauthorized 扱い
+      const ct = res.headers.get("Content-Type") ?? "";
+      if (!ct.includes("application/json")) {
+        throw new CodexAnalysisError(
+          friendlyMessage("unauthorized"),
+          "unauthorized",
+          res.status,
+          false,
+        );
+      }
+      break;
+    }
+    if (res && (res.type === "opaqueredirect" || res.status === 0)) {
+      // redirect:'manual' 時は opaqueredirect で返る → 認証切れ
+      throw new CodexAnalysisError(
+        friendlyMessage("unauthorized"),
+        "unauthorized",
+        0,
+        false,
+      );
+    }
+    const status = lastStatus;
+    const { retryable } = classifyErrorStatus(status);
+    if (!retryable || attempt >= MAX_ATTEMPTS - 1) break;
+    // exponential backoff: 1.5s, 3s
+    await new Promise((r) => setTimeout(r, 1500 * (attempt + 1)));
   }
+
   if (!res || !res.ok) {
     const status = lastStatus || (res ? res.status : 0);
     const { code, retryable } = classifyErrorStatus(status);
-    // upstream body は JSON / HTML 両対応。エラーメッセージは code 別に決める。
-    let detail = "";
-    if (res) {
+    let detail = networkErr?.message ?? "";
+    if (res && !detail) {
       try {
         const text = await res.text();
         const parsed = (() => {
@@ -122,19 +195,8 @@ export async function analyzeCapture(opts: {
         /* ignore */
       }
     }
-    const friendly =
-      code === "gateway_unavailable"
-        ? "AI 解析サーバーが混み合っています。少し待ってから再試行してください。"
-        : code === "gateway_timeout"
-          ? "AI 解析がタイムアウトしました。画像が大きい可能性があります。"
-          : code === "rate_limited"
-            ? "短時間にリクエストが多すぎます。少し待ってから再試行してください。"
-            : code === "payload_too_large"
-              ? "画像サイズが上限を超えています。"
-              : code === "unauthorized"
-                ? "サインインが切れています。再認可してください。"
-                : "AI 解析でエラーが発生しました。再試行してください。";
-    throw new CodexAnalysisError(`${friendly}${detail ? ` (${detail.slice(0, 80)})` : ""}`, code, status, retryable);
+    const msg = `${friendlyMessage(code)}${detail ? ` (${detail.slice(0, 80)})` : ""}`;
+    throw new CodexAnalysisError(msg, code, status, retryable);
   }
   return (await res.json()) as CodexReply;
 }

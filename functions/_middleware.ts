@@ -21,6 +21,7 @@ function isPublicPath(p: string): boolean {
     p.startsWith("/_next") ||
     p.startsWith("/api/me") ||
     p.startsWith("/api/invite") ||
+    p.startsWith("/api/codex") ||
     p === "/favicon.ico" ||
     p === "/manifest.webmanifest" ||
     p === "/sw.js" ||

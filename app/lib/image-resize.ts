@@ -1,59 +1,75 @@
 // Client-side image resize before upload to gateway.
-// Critic verification 一致: 5-12MB の生画像が Worker CPU/memory 超過 → 502。
-// 長辺 2400px / JPEG quality 0.82 / hard cap 4MB を目標に圧縮。
-//
-// 注意: Drive にはオリジナル画像を上げる (resize は AI 送信専用)。
-//       resize 結果は analyzeCapture() の入力としてのみ使用。
+// Phase 22 → Phase 22.1 で fallback paths を強化:
+//   - 元 blob を返す path は廃止 (4MB 超は throw)
+//   - canvas re-encode で EXIF GPS も必ず削除
+//   - 失敗時は CodexAnalysisError ではなく独自エラーを throw (caller が friendly message に変換)
 
 const MAX_LONG_EDGE = 2400;
 const TARGET_QUALITY = 0.82;
 const HARD_CAP_BYTES = 4 * 1024 * 1024;
 
+export class ImageResizeError extends Error {
+  constructor(
+    message: string,
+    public code: "decode_failed" | "too_large_after_resize" | "canvas_unsupported",
+  ) {
+    super(message);
+    this.name = "ImageResizeError";
+  }
+}
+
 export async function resizeImageForAI(blob: Blob): Promise<Blob> {
-  // 既に小さい (target 以下) ならそのまま返す
-  if (blob.size <= HARD_CAP_BYTES && !needsDimensionShrink(blob)) {
-    return blob;
-  }
+  // 既に小さい場合でも EXIF を剥がすため、最低限 1 回は canvas 経由する
+  // ただし 1MB 未満かつ画像 mime なら EXIF strip だけして返す経済モード
+  const isSmall = blob.size < 1024 * 1024;
 
+  let bitmap: ImageBitmap;
   try {
-    const bitmap = await loadBitmap(blob);
-    const { width, height } = computeTargetSize(bitmap.width, bitmap.height);
-
-    const canvas = document.createElement("canvas");
-    canvas.width = width;
-    canvas.height = height;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) {
-      bitmap.close?.();
-      return blob; // canvas 利用不可 → 諦めて元 blob
-    }
-    ctx.drawImage(bitmap, 0, 0, width, height);
-    bitmap.close?.();
-
-    // Step 1: 0.82 で試す
-    let out = await canvasToBlob(canvas, TARGET_QUALITY);
-    if (out && out.size <= HARD_CAP_BYTES) return out;
-
-    // Step 2: 0.7 まで下げる
-    out = await canvasToBlob(canvas, 0.7);
-    if (out && out.size <= HARD_CAP_BYTES) return out;
-
-    // Step 3: 0.55 (最終手段)
-    out = await canvasToBlob(canvas, 0.55);
-    if (out) return out;
-
-    return blob; // すべて失敗 → 元 blob (gateway 側で reject されても情報残る)
+    bitmap = await loadBitmap(blob);
   } catch {
-    // Resize 失敗時は元 blob を返す。AI 解析が落ちる可能性はあるが Drive 保存は影響受けない。
-    return blob;
+    throw new ImageResizeError(
+      "画像のデコードに失敗しました。別の写真でお試しください。",
+      "decode_failed",
+    );
   }
+
+  const { width, height } = computeTargetSize(bitmap.width, bitmap.height);
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) {
+    bitmap.close?.();
+    throw new ImageResizeError(
+      "このブラウザでは画像処理がサポートされていません。",
+      "canvas_unsupported",
+    );
+  }
+  ctx.drawImage(bitmap, 0, 0, width, height);
+  bitmap.close?.();
+
+  // 段階的 quality で 4MB cap を必ず達成
+  const qualities = isSmall ? [0.85, 0.75] : [TARGET_QUALITY, 0.7, 0.55, 0.4];
+  for (const q of qualities) {
+    const out = await canvasToBlob(canvas, q);
+    if (out && out.size <= HARD_CAP_BYTES) return out;
+  }
+
+  // ここまで来たら 0.4 でも 4MB 超え (極端なケース) → 諦めて throw
+  throw new ImageResizeError(
+    "画像が大きすぎます。Camera 設定で解像度を下げてみてください。",
+    "too_large_after_resize",
+  );
 }
 
 async function loadBitmap(blob: Blob): Promise<ImageBitmap> {
   if ("createImageBitmap" in window) {
-    return createImageBitmap(blob);
+    try {
+      return await createImageBitmap(blob);
+    } catch {
+      // iOS Safari 等で createImageBitmap が reject するケースがある → HTMLImageElement fallback
+    }
   }
-  // Fallback: HTMLImageElement
   return new Promise<ImageBitmap>((resolve, reject) => {
     const url = URL.createObjectURL(blob);
     const img = new Image();
@@ -83,11 +99,6 @@ function computeTargetSize(w: number, h: number): { width: number; height: numbe
     width: Math.round(w * scale),
     height: Math.round(h * scale),
   };
-}
-
-function needsDimensionShrink(_blob: Blob): boolean {
-  // We don't know dimensions without decoding. Treat size > 1MB as suspect.
-  return _blob.size > 1024 * 1024;
 }
 
 function canvasToBlob(canvas: HTMLCanvasElement, quality: number): Promise<Blob | null> {

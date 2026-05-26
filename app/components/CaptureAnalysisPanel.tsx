@@ -152,7 +152,14 @@ export function CaptureAnalysisPanel({
             </p>
           ) : null}
           <div className="mt-3 flex flex-wrap gap-2">
-            {onRetry ? (
+            {error?.includes("サインインが切れて") ? (
+              <a
+                href="/settings"
+                className="inline-flex h-8 items-center justify-center rounded-full border border-accent/40 bg-accent/10 px-3 text-[12px] font-medium text-accent-soft transition hover:bg-accent/20"
+              >
+                🔐 設定 → 再認可
+              </a>
+            ) : onRetry ? (
               <button
                 type="button"
                 onClick={onRetry}
