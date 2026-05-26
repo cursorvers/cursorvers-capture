@@ -139,3 +139,53 @@ Worker code 内の middleware timeout は走らない (より下層で abort)。
 2. **Proxy 層で必ず JSON 正規化** — upstream の HTML/Empty を client に出さない
 3. **失敗時の UX で部分成功を明示** — テスターは「全部壊れた」と誤解しやすい
 4. **テスター送付前に大きな実画像で end-to-end 検証** — Pixel テストが浅かった
+
+---
+
+## 🛡 2026-05-26 — Phase 22.1 + 22.2 ハードニング (multi-agent verification)
+
+### Phase 22.1 — 3-critic simulation で発覚した HIGH issues hotfix
+
+3-critic 並列 verification (Codex code-reviewer / GLM general-reviewer / Codex security-analyst) で Phase 22 デプロイ後の本番動作をシミュレートし、6 件の HIGH/MED issue を発見・即修正。
+
+| P# | Issue | Fix |
+|---|---|---|
+| P1 | `/api/codex/*` middleware 302 → fetch follows → HTML → JSON parse fail | isPublicPath に追加 (proxy 自身で cookie 検証) |
+| P2 | `resizeImageForAI` fallback で 4MB 超画像が AI 送信される | `ImageResizeError` throw 化、段階的 quality (0.82→0.7→0.55→0.4) |
+| P3 | fetch network error が retry されない (status=0) | `network_error` code 新設 → retryable: true |
+| P4 | retry cap なし → 連投リスク | 最大 3 attempts、exponential backoff (1.5s, 3s) |
+| P5 | EXIF GPS 漏洩 (fallback path) | canvas re-encode 強制 |
+| P6 | Cookie 切れ時の「再認可」誘導なし | unauthorized error → 「🔐 設定 → 再認可」link |
+
+verify: `curl POST /api/codex/analyze` (no cookie) → **HTTP 401 JSON** 確認済 (was 302 redirect)
+
+### Phase 22.2 — 残課題 A-G を並列で全完遂
+
+| # | Item | スコープ | 検証 |
+|---|---|---|---|
+| **A** | `navigator.onLine` 検出 | capture-analysis.ts | offline 時に gateway を叩かない |
+| **B** | SW v1→v2 update banner | SWRegistry.tsx | 強制 reload 撤廃、ユーザー操作型 |
+| **C** | CSRF Origin/Referer check | functions/api/codex/analyze.ts | curl cross-site → **403 JSON** ✓ |
+| **D** | Gateway Gemini structured errors | gateway src/providers/gemini.ts | 9 種類分類 (invalid_key/rate_limited/safety_block/...) |
+| **E** | Health canary cron | gateway worker.ts | `schedule: */15 * * * *` 適用 ✓ |
+| **F** | Discord webhook helper | gateway src/lib/notify.ts | env optional、未設定なら no-op |
+| **G** | KPI structured logging | gateway src/lib/notify.ts | privacy-preserving (画像/email 不含) |
+
+### 顧問税理士へのフォロー
+
+- Slack に修正完了報告を送付済 (2026-05-26)
+- 再試行のため PWA 完全再起動を依頼
+
+### 手動 setup 残 (任意)
+
+- Discord 通知 ON: `cd cursorvers-codex-gateway && npx wrangler secret put DISCORD_WEBHOOK_URL`
+- Canary auth: GATEWAY_AUTH_KEYS 自動流用、特別指定する場合のみ `CANARY_AUTH_TOKEN` set
+
+### Lessons (Phase 22 全体)
+
+1. **未圧縮画像を Worker に渡さない** — client-side resize 必須
+2. **proxy 層は HTML/Empty を絶対透過しない** — JSON 正規化を契約
+3. **失敗時 UX で部分成功 (Drive ✓ / AI ✗) を明示** — テスター誤解防止
+4. **送付前に大画像で end-to-end 検証** — Pixel 上で実画像確認
+5. **3-critic simulation を Phase 22 のような fix にも適用** — 単独 deploy 後の盲点を補完
+6. **gateway 側でも structured error + canary + KPI** — proactive 監視がベータ品質を担保
