@@ -89,3 +89,53 @@
 | 2-4 週間以内 | クライアント展開可否判断 → 追加 URL 発行 |
 | 2-3 ヶ月以内 | 価格決定 + Phase 13b (Stripe Checkout) 着手 |
 | 商用ローンチ前 | Phase 16 残セキュリティ強化、特商法表記、弁護士レビュー |
+
+---
+
+## 🚨 2026-05-26 — Codex Gateway 502 incident & fix (Phase 22)
+
+### What happened
+
+顧問税理士法人テスター (`ikegami.hiroki@sirius-ta.com`) が iPhone から撮影:
+- Drive 保存 ✅ 成功
+- AI 振り分け ❌ 「Codex unreachable (502)」+ 生 HTML エラーで失敗
+
+### Root cause (3-critic verification 一致)
+
+5-12MB 画像の base64 を CF Worker 経由で Gemini に渡す際、Worker platform layer
+(CPU / memory / wall time) が exhaustion → CF が default 502 HTML を返す。
+Worker code 内の middleware timeout は走らない (より下層で abort)。
+
+### Fix (Phase 22, deployed 2026-05-26)
+
+**22a. UI 改善 (`app/components/CaptureAnalysisPanel.tsx`)**
+- 生 HTML 露出を撤廃 (code 別 friendly message)
+- 「✅ Drive 保存完了 / ⚠️ AI 整理は未完了」分離表示
+- 「🔁 もう一度 AI で整理する」retry button
+- 「Drive で開く ↗」link で部分成功への安心感
+- `app/lib/capture-analysis.ts`: `CodexAnalysisError` (gateway_unavailable / gateway_timeout / rate_limited / payload_too_large / unauthorized / unknown) + 429/5xx 1 回 retry (1.5s backoff)
+- `app/page.tsx`: `handleRetryAnalysis` + image blob 保持
+
+**22b. Proxy 改善 (`functions/api/codex/analyze.ts`)**
+- upstream HTML → structured JSON error 正規化
+- network 失敗時も JSON 502 で返す
+- console.error 構造化ログ (status / contentType / bodyPreview)
+
+**22c. Root cause 緩和 (`app/lib/image-resize.ts` 新規)**
+- Client-side resize: 長辺 2400px / JPEG quality 0.82 (→ 0.7 → 0.55 段階)
+- Hard cap 4MB
+- **Drive にはオリジナル**を上げ、**AI 解析にのみ resize 版**
+
+### Deferred (next phase)
+
+- Phase 22d: Worker 側 structured error class (Gemini timeout / rate / key / model 別)
+- Phase 22e: Health canary worker (Cron, 5-15min, 合成画像で /v1/analyze 叩く)
+- Phase 22f: Discord webhook 通知 (失敗 spike 検知)
+- Phase 22g: KPI 集計 (HMAC user hash + size bucket、privacy-preserving)
+
+### Lessons (prevention)
+
+1. **未圧縮の生画像を CF Worker に渡してはいけない** — 必ず client-side resize
+2. **Proxy 層で必ず JSON 正規化** — upstream の HTML/Empty を client に出さない
+3. **失敗時の UX で部分成功を明示** — テスターは「全部壊れた」と誤解しやすい
+4. **テスター送付前に大きな実画像で end-to-end 検証** — Pixel テストが浅かった
