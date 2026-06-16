@@ -1,3 +1,7 @@
+// TODO Phase 23: HomeContent を別ファイルに切り出して dynamic({ssr:false}) 化
+// 現在は ErrorBoundary (Phase 22.3) で client crash を保護しているため緊急性は低い。
+// useSearchParams を含む静的 export で BAILOUT_TO_CLIENT_SIDE_RENDERING marker が
+// 埋め込まれる挙動を局所化したい場合は、page-content.tsx として分離する。
 "use client";
 
 import { CameraButton } from "@/app/components/CameraButton";
