@@ -3,11 +3,13 @@ import {
   parseInviteAllowlist,
   getTierForEmail,
 } from "../_shared/invite-gate";
+import { getClaimedEmail, isTrialActive } from "../_shared/invite-kv";
 
 interface Env {
   COOKIE_SECRET: string;
   INVITE_ALLOWLIST?: string;
   PRO_USERS?: string;
+  INVITE_KV?: KVNamespace;
 }
 
 const COOKIE_NAME = "gdrive_email";
@@ -24,7 +26,38 @@ function tierFor(email: string | null, env: Env): "free" | "pro" | "unknown" {
 export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   const signed = readCookie(request.headers.get("cookie"), COOKIE_NAME);
   const email = signed ? await verify(signed, env.COOKIE_SECRET) : null;
-  return Response.json({ tier: tierFor(email, env), email });
+
+  let trial_active: boolean | null = null;
+  let trial_ends_at: string | null = null;
+
+  if (email) {
+    const proUsers = parseInviteAllowlist(env.PRO_USERS);
+    const allowlist = parseInviteAllowlist(env.INVITE_ALLOWLIST);
+    const lower = email.toLowerCase();
+
+    // PRO_USERS / INVITE_ALLOWLIST は KV record に関係なく unlimited
+    if (proUsers.includes(lower) || allowlist.includes(lower)) {
+      trial_active = true;
+      trial_ends_at = null;
+    } else if (env.INVITE_KV) {
+      try {
+        const rec = await getClaimedEmail(env.INVITE_KV, email);
+        if (rec) {
+          trial_active = isTrialActive(rec);
+          trial_ends_at = rec.trial_ends_at ?? null;
+        }
+      } catch {
+        // KV error → don't block the response
+      }
+    }
+  }
+
+  return Response.json({
+    tier: tierFor(email, env),
+    email,
+    trial_active,
+    trial_ends_at,
+  });
 };
 
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
@@ -42,8 +75,6 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     );
   }
 
-  // Validate the access_token against Google's tokeninfo endpoint and
-  // confirm the email in the token matches the one the client posted.
   const tokenInfoRes = await fetch(
     `https://www.googleapis.com/oauth2/v3/tokeninfo?access_token=${encodeURIComponent(access_token)}`,
   );

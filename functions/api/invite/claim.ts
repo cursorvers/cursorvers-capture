@@ -15,7 +15,6 @@ interface Env {
 const COOKIE_NAME = "gdrive_email";
 
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
-  // サインイン済みかチェック
   const signed = readCookie(request.headers.get("cookie"), COOKIE_NAME);
   const email = signed ? await verify(signed, env.COOKIE_SECRET).catch(() => null) : null;
   if (!email) {
@@ -33,6 +32,15 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     return Response.json({ error: "token が必要です" }, { status: 400 });
   }
 
+  const lower = email.toLowerCase();
+
+  // すでに claim 済 → 冪等的に OK (email: key が authoritative)
+  const already = await isEmailClaimed(env.INVITE_KV, email);
+  if (already) {
+    return Response.json({ ok: true, email, already_claimed: true });
+  }
+
+  // token 読み取り + validation
   const record = await getToken(env.INVITE_KV, token);
   if (!record) {
     return Response.json({ error: "招待トークンが見つかりません" }, { status: 404 });
@@ -43,36 +51,47 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     return Response.json({ error: `招待トークンは無効です: ${valid.reason}` }, { status: 410 });
   }
 
-  // すでに claim 済 → 冪等的に OK 返す
-  const already = await isEmailClaimed(env.INVITE_KV, email);
-  if (already) {
+  // token 側にも既に含まれていれば冪等
+  if (record.used_emails.includes(lower)) {
     return Response.json({ ok: true, email, already_claimed: true });
   }
 
-  // 二重カウント防止のため email を used_emails に既に含むかチェック
-  if (record.used_emails.includes(email.toLowerCase())) {
-    return Response.json({ ok: true, email, already_claimed: true });
-  }
+  // ── Step 1: email claim を先に書く (authoritative source) ──
+  await claimEmail(env.INVITE_KV, email, token, 60);
 
-  // 書き込み直前に再フェッチして race window 縮小 (atomic ではないが現実的軽減)
+  // ── Step 2: token を最新版で re-read → dedup + merge → write ──
   const latest = await getToken(env.INVITE_KV, token);
   if (!latest) {
-    return Response.json({ error: "招待トークンが消失しました" }, { status: 410 });
+    return Response.json({ ok: true, email, already_claimed: false });
   }
-  const latestValid = isTokenValid(latest);
-  if (!latestValid.ok) {
-    return Response.json({ error: `招待トークンは無効です: ${latestValid.reason}` }, { status: 410 });
-  }
-  if (latest.used_emails.includes(email.toLowerCase())) {
-    return Response.json({ ok: true, email, already_claimed: true });
-  }
-  await claimEmail(env.INVITE_KV, email, token, 60);
-  latest.used_count += 1;
-  latest.used_emails.push(email.toLowerCase());
-  await putToken(env.INVITE_KV, latest);
-  // 既存ロジック互換のため record も更新
-  record.used_count = latest.used_count;
-  record.used_emails = latest.used_emails;
 
-  return Response.json({ ok: true, email, used_count: record.used_count, max_uses: record.max_uses });
+  // dedup + merge
+  const deduped = [...new Set(latest.used_emails.map((e) => e.toLowerCase()))];
+  if (!deduped.includes(lower)) {
+    deduped.push(lower);
+  }
+  latest.used_emails = deduped;
+  latest.used_count = deduped.length;
+
+  // ── Step 3: Compensating transaction ──
+  // max_uses を超えた場合、email claim を取り消して 410 を返す。
+  if (latest.max_uses !== -1 && latest.used_count > latest.max_uses) {
+    await env.INVITE_KV.delete(`email:${lower}`);
+    latest.used_emails = deduped.filter((e) => e !== lower);
+    latest.used_count = latest.used_emails.length;
+    await putToken(env.INVITE_KV, latest);
+    return Response.json(
+      { error: "招待トークンは無効です: 利用上限に達しました" },
+      { status: 410 },
+    );
+  }
+
+  await putToken(env.INVITE_KV, latest);
+
+  return Response.json({
+    ok: true,
+    email,
+    used_count: latest.used_count,
+    max_uses: latest.max_uses,
+  });
 };

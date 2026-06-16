@@ -21,6 +21,7 @@ import { RootErrorBoundary } from "./components/RootErrorBoundary";
 import { Header } from "./components/Header";
 import { OnlineStatusBanner } from "./components/OnlineStatusBanner";
 import { Footer } from "./components/Footer";
+import { TrialExpiryBanner } from "./components/TrialExpiryBanner";
 
 export default function RootLayout({
   children,
@@ -44,6 +45,7 @@ export default function RootLayout({
           <SWRegistry />
           <Header />
           <OnlineStatusBanner />
+          <TrialExpiryBanner />
           <main className="flex-grow">{children}</main>
           <Footer />
         </RootErrorBoundary>
