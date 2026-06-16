@@ -17,6 +17,7 @@ export const viewport: Viewport = {
 };
 
 import { SWRegistry } from "./components/SWRegistry";
+import { RootErrorBoundary } from "./components/RootErrorBoundary";
 import { Header } from "./components/Header";
 import { OnlineStatusBanner } from "./components/OnlineStatusBanner";
 import { Footer } from "./components/Footer";
@@ -39,11 +40,13 @@ export default function RootLayout({
         <script async src="https://accounts.google.com/gsi/client" />
       </head>
       <body className="flex min-h-screen flex-col bg-ink-900 font-sans text-ink-100 antialiased">
-        <SWRegistry />
-        <Header />
-        <OnlineStatusBanner />
-        <main className="flex-grow">{children}</main>
-        <Footer />
+        <RootErrorBoundary>
+          <SWRegistry />
+          <Header />
+          <OnlineStatusBanner />
+          <main className="flex-grow">{children}</main>
+          <Footer />
+        </RootErrorBoundary>
       </body>
     </html>
   );

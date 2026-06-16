@@ -63,11 +63,13 @@ export async function resizeImageForAI(blob: Blob): Promise<Blob> {
 }
 
 async function loadBitmap(blob: Blob): Promise<ImageBitmap> {
-  if ("createImageBitmap" in window) {
+  // Phase 22.3: typeof guard で iOS 14/古い Safari 未対応環境でも throw しない
+  const hasCIB = typeof globalThis.createImageBitmap === "function";
+  if (hasCIB) {
     try {
       return await createImageBitmap(blob);
     } catch {
-      // iOS Safari 等で createImageBitmap が reject するケースがある → HTMLImageElement fallback
+      // 一部 iOS Safari で reject → HTMLImageElement fallback
     }
   }
   return new Promise<ImageBitmap>((resolve, reject) => {
@@ -75,6 +77,13 @@ async function loadBitmap(blob: Blob): Promise<ImageBitmap> {
     const img = new Image();
     img.onload = async () => {
       try {
+        if (!hasCIB) {
+          // createImageBitmap が無い環境では Image 自体を bitmap-like 扱い
+          // (canvas.drawImage は HTMLImageElement を直接受け取る)
+          URL.revokeObjectURL(url);
+          resolve(img as unknown as ImageBitmap);
+          return;
+        }
         const bmp = await createImageBitmap(img);
         URL.revokeObjectURL(url);
         resolve(bmp);
