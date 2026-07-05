@@ -127,6 +127,48 @@ describe("capture routing", () => {
     });
   });
 
+  it("undo reports latest Drive state when IDB restore retry still fails", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    mockGetCapture.mockResolvedValue(
+      capture({
+        parent_id: "target-folder",
+        doc_type: "receipt",
+        routed_to: "target-folder",
+      }),
+    );
+    mockPutCapture.mockRejectedValue(new Error("idb down"));
+
+    const restored = await undoRetargetCaptureDocType({
+      accessToken: "token",
+      undo: {
+        file_id: "file-1",
+        previous_doc_type: "memo",
+        previous_parent_id: "main-folder",
+        previous_routed_to: undefined,
+        current_doc_type: "receipt",
+        current_parent_id: "target-folder",
+      },
+    });
+
+    expect(mockMoveDriveFile).toHaveBeenCalledWith({
+      file_id: "file-1",
+      add_parent: "main-folder",
+      remove_parent: "target-folder",
+      accessToken: "token",
+    });
+    expect(mockPutCapture).toHaveBeenCalledTimes(2);
+    expect(restored).toMatchObject({
+      doc_type: "memo",
+      parent_id: "main-folder",
+      routed_to: undefined,
+      idbUpdateFailed: true,
+    });
+    expect(console.error).toHaveBeenCalledWith(
+      "capture restore after undo routing failed",
+      expect.any(Error),
+    );
+  });
+
   it("rolls Drive back when retarget IDB compensation still fails", async () => {
     mockGetCapture.mockResolvedValue(capture());
     mockPutCapture.mockRejectedValue(new Error("idb down"));

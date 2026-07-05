@@ -6,12 +6,13 @@ vi.mock("@/app/lib/ai-rename-toggle", () => ({
 }));
 
 vi.mock("@/app/lib/drive", () => ({
+  getDriveFileName: vi.fn(),
   renameDriveFile: vi.fn(),
 }));
 
 import { getAutoAiRenameEnabled } from "@/app/lib/ai-rename-toggle";
 import { autoApplyAiRename } from "@/app/lib/auto-rename";
-import { renameDriveFile } from "@/app/lib/drive";
+import { getDriveFileName, renameDriveFile } from "@/app/lib/drive";
 
 const analysis: CaptureAnalysis = {
   comment: "receipt",
@@ -26,6 +27,7 @@ describe("autoApplyAiRename", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.spyOn(console, "error").mockImplementation(() => undefined);
+    vi.mocked(getDriveFileName).mockResolvedValue("capture.jpg");
   });
 
   it("applies the suggested filename with the original extension", async () => {
@@ -67,7 +69,28 @@ describe("autoApplyAiRename", () => {
     expect(renameDriveFile).not.toHaveBeenCalled();
     expect(result).toEqual({
       driveName: "capture.jpg",
+      originalDriveName: "capture.jpg",
       status: "disabled",
+    });
+  });
+
+  it("skips auto rename when Drive name was manually changed first", async () => {
+    vi.mocked(getAutoAiRenameEnabled).mockResolvedValue(true);
+    vi.mocked(getDriveFileName).mockResolvedValue("manual-name.jpg");
+
+    const result = await autoApplyAiRename({
+      fileId: "file-1",
+      accessToken: "token",
+      originalDriveName: "capture.jpg",
+      analysis,
+    });
+
+    expect(getDriveFileName).toHaveBeenCalledWith("file-1", "token");
+    expect(renameDriveFile).not.toHaveBeenCalled();
+    expect(result).toEqual({
+      driveName: "manual-name.jpg",
+      originalDriveName: "capture.jpg",
+      status: "skipped",
     });
   });
 

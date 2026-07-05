@@ -356,6 +356,31 @@ export async function updateMetadata(
   }
 }
 
+export async function getDriveFileName(
+  fileId: string,
+  accessToken: string,
+): Promise<string> {
+  const res = await fetch(
+    `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?fields=name`,
+    {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    },
+  );
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(
+      `Drive file name fetch failed (${res.status}): ${body.slice(0, 200)}`,
+    );
+  }
+  const data = (await res.json()) as { name?: string };
+  if (!data.name) {
+    throw new Error("Drive file name fetch returned no name");
+  }
+  return data.name;
+}
+
 // Drive ファイル名を変更する (drive.file scope で書込可)。
 export async function renameDriveFile(
   fileId: string,

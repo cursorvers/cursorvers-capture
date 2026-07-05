@@ -180,15 +180,18 @@ export default function HomeContent(): JSX.Element {
       if (!tok) {
         return {
           driveName: originalDriveName,
-          rename: { driveName: originalDriveName, status: "skipped" },
+          originalDriveName,
+          rename: {
+            driveName: originalDriveName,
+            originalDriveName,
+            status: "skipped",
+          },
         };
       }
 
-      try {
-        await saveAnalysisToDrive(fileId, tok, analysis);
-      } catch (err) {
+      void saveAnalysisToDrive(fileId, tok, analysis).catch((err) => {
         console.error("Drive description patch failed", err);
-      }
+      });
 
       const rename = await autoApplyAiRename({
         fileId,

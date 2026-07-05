@@ -22,6 +22,10 @@ export type RetargetUndo = {
   current_parent_id: string;
 };
 
+export type UndoRetargetCaptureResult = CaptureRecord & {
+  idbUpdateFailed?: boolean;
+};
+
 export type BackfillProgress = {
   done: number;
   total: number;
@@ -145,7 +149,7 @@ export async function retargetCaptureDocType(opts: {
 export async function undoRetargetCaptureDocType(opts: {
   undo: RetargetUndo;
   accessToken: string;
-}): Promise<CaptureRecord> {
+}): Promise<UndoRetargetCaptureResult> {
   return withFileRoutingLock(opts.undo.file_id, async () => {
     const current = await getCapture(opts.undo.file_id);
     if (!current) {
@@ -168,7 +172,12 @@ export async function undoRetargetCaptureDocType(opts: {
       routed_to: opts.undo.previous_routed_to,
       routed_at: opts.undo.previous_routed_to ? new Date().toISOString() : undefined,
     };
-    await putCaptureWithCompensationRetry(restored);
+    try {
+      await putCaptureWithCompensationRetry(restored);
+    } catch (err) {
+      console.error("capture restore after undo routing failed", err);
+      return { ...restored, idbUpdateFailed: true };
+    }
     return restored;
   });
 }

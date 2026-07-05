@@ -24,6 +24,7 @@ type Props = {
 type ConfigFolderRecord = { key: "folder_id"; value: string };
 
 const DOC_TYPES: DocType[] = ["receipt", "memo", "business_card", "other"];
+const UNDO_TIMEOUT_MS = 10_000;
 
 const DOC_BADGE: Record<DocType, { label: string; tone: string }> = {
   receipt: { label: "📄 領収書", tone: "border-amber-400/40 bg-amber-400/10 text-amber-200" },
@@ -74,6 +75,15 @@ export function CaptureDetailSheet({ entry, onClose, onRenamed, onDocTypeChanged
     setRoutingMessage(null);
     setUndo(null);
   }, [entry?.id, entry?.name, entry?.analysis?.doc_type]);
+
+  useEffect(() => {
+    if (!undo) return;
+    const id = window.setTimeout(() => {
+      setUndo(null);
+      setRoutingMessage(null);
+    }, UNDO_TIMEOUT_MS);
+    return () => window.clearTimeout(id);
+  }, [undo]);
 
   useEffect(() => {
     let cancelled = false;
@@ -160,7 +170,11 @@ export function CaptureDetailSheet({ entry, onClose, onRenamed, onDocTypeChanged
       setCurrentDocType(restored.doc_type);
       onDocTypeChanged?.(entry.id, restored.doc_type);
       setUndo(null);
-      setRoutingMessage("振り分け先を元に戻しました。");
+      setRoutingMessage(
+        restored.idbUpdateFailed
+          ? "Drive は元の振り分け先に戻しました。端末内履歴の更新に失敗しました。"
+          : "振り分け先を元に戻しました。",
+      );
     } catch (e) {
       setRoutingMessage(e instanceof Error ? e.message : String(e));
     } finally {
