@@ -4,10 +4,18 @@ import { db } from './idb';
 const UPLOAD_SESSION_EXPIRATION_MS = 6 * 86400 * 1000; // 6 days
 
 interface ResumableSession {
-  id: string; // filename
+  id: string;
   sessionUrl: string;
   createdAt: number;
   totalSize: number;
+}
+
+function createUploadSessionKey(filename: string): string {
+  const random =
+    typeof crypto !== "undefined" && "randomUUID" in crypto
+      ? crypto.randomUUID()
+      : Math.random().toString(36).slice(2);
+  return `${filename}:${Date.now()}:${random}`;
 }
 
 export async function initResumableSession(opts: {
@@ -15,8 +23,9 @@ export async function initResumableSession(opts: {
   mimeType: 'image/jpeg';
   folderId: string;
   size: number;
+  sessionId?: string;
 }): Promise<{ sessionUrl: string; createdAt: number }> {
-  const { filename, mimeType, folderId, size } = opts;
+  const { filename, mimeType, folderId, size, sessionId = filename } = opts;
   const response = await driveFetch(
     'https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable',
     {
@@ -45,7 +54,7 @@ export async function initResumableSession(opts: {
 
   const createdAt = Date.now();
   await db.put('uploadSessions', {
-    id: filename,
+    id: sessionId,
     sessionUrl,
     createdAt,
     totalSize: size,
@@ -155,11 +164,15 @@ export async function uploadBlob(
 
   folderId: string,
 
-  onProgress?: (bytesUploaded: number, total: number) => void
+  onProgress?: (bytesUploaded: number, total: number) => void,
+
+  opts?: { sessionId?: string }
 
 ): Promise<{ fileId: string }> {
 
-  const initialSession: ResumableSession | undefined = await db.get('uploadSessions', filename);
+  const sessionId = opts?.sessionId ?? createUploadSessionKey(filename);
+
+  const initialSession: ResumableSession | undefined = await db.get('uploadSessions', sessionId);
 
     let sessionUrl: string = ''; // Will be assigned definitively before the loop
 
@@ -185,7 +198,7 @@ export async function uploadBlob(
 
       if (resumeStatus.done) {
 
-        await db.delete('uploadSessions', filename);
+        await db.delete('uploadSessions', sessionId);
 
         onProgress?.(totalSize, totalSize);
 
@@ -221,7 +234,7 @@ export async function uploadBlob(
 
     if (initialSession) {
 
-      await db.delete('uploadSessions', filename);
+      await db.delete('uploadSessions', sessionId);
 
     }
 
@@ -234,6 +247,8 @@ export async function uploadBlob(
       folderId,
 
       size: totalSize,
+
+      sessionId,
 
     });
 
@@ -257,7 +272,7 @@ export async function uploadBlob(
 
       if (uploadResult.done) {
 
-        await db.delete('uploadSessions', filename);
+        await db.delete('uploadSessions', sessionId);
 
         onProgress?.(totalSize, totalSize);
 
@@ -278,7 +293,7 @@ export async function uploadBlob(
 
         // Session expired or not found during chunk upload, re-initialize once
 
-        await db.delete('uploadSessions', filename);
+        await db.delete('uploadSessions', sessionId);
 
         const newSession = await initResumableSession({
 
@@ -289,6 +304,8 @@ export async function uploadBlob(
           folderId,
 
           size: totalSize,
+
+          sessionId,
 
         });
 

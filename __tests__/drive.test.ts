@@ -127,7 +127,9 @@ describe('drive.ts', () => {
     });
 
     const onProgress = vi.fn();
-    const result = await uploadBlob(smallBlob, filename, folderId, onProgress);
+    const result = await uploadBlob(smallBlob, filename, folderId, onProgress, {
+      sessionId: filename,
+    });
 
     expect(mockIdbGet).toHaveBeenCalledWith('uploadSessions', filename);
     expect(mockDriveFetch).toHaveBeenCalledTimes(2); // init + upload
@@ -191,7 +193,9 @@ describe('drive.ts', () => {
     });
 
     const onProgress = vi.fn();
-    const result = await uploadBlob(largeBlob, filename, folderId, onProgress);
+    const result = await uploadBlob(largeBlob, filename, folderId, onProgress, {
+      sessionId: filename,
+    });
 
     expect(mockIdbGet).toHaveBeenCalledWith('uploadSessions', filename);
     expect(mockDriveFetch).toHaveBeenCalledTimes(3); // queryResume + 2x uploadChunk
@@ -268,7 +272,9 @@ describe('drive.ts', () => {
     });
 
     const onProgress = vi.fn();
-    const result = await uploadBlob(blob, filename, folderId, onProgress);
+    const result = await uploadBlob(blob, filename, folderId, onProgress, {
+      sessionId: filename,
+    });
 
     expect(mockIdbGet).toHaveBeenCalledWith('uploadSessions', filename);
     expect(mockDriveFetch).toHaveBeenCalledTimes(2); // init + uploadChunk
@@ -337,7 +343,9 @@ describe('drive.ts', () => {
     });
 
     const onProgress = vi.fn();
-    const result = await uploadBlob(blob, filename, folderId, onProgress);
+    const result = await uploadBlob(blob, filename, folderId, onProgress, {
+      sessionId: filename,
+    });
 
     expect(mockDriveFetch).toHaveBeenCalledTimes(4); // init1 -> chunk1(fail) -> init2 -> chunk2(success)
     expect(mockIdbDelete).toHaveBeenCalledWith('uploadSessions', filename); // Called after 410 and after success
@@ -347,5 +355,59 @@ describe('drive.ts', () => {
     expect(onProgress).toHaveBeenCalledWith(totalSize, totalSize);
 
     expect(result.fileId).toBe(mockFileId);
+  });
+
+  it('uploadBlob uses unique upload session keys for same filename calls by default', async () => {
+    const filename = 'same-name.jpg';
+    const folderId = 'folder123';
+    const blob = new Blob([new TextEncoder().encode('short content')]);
+
+    mockIdbGet.mockResolvedValue(undefined);
+    mockDriveFetch
+      .mockResolvedValueOnce({
+        ok: true,
+        headers: new Headers({ Location: 'https://upload/session-a' }),
+        status: 200,
+        statusText: 'OK',
+        json: () => Promise.resolve({}),
+      })
+      .mockResolvedValueOnce({
+        status: 200,
+        json: () => Promise.resolve({ id: 'file-a' }),
+        ok: true,
+        statusText: 'OK',
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        headers: new Headers({ Location: 'https://upload/session-b' }),
+        status: 200,
+        statusText: 'OK',
+        json: () => Promise.resolve({}),
+      })
+      .mockResolvedValueOnce({
+        status: 200,
+        json: () => Promise.resolve({ id: 'file-b' }),
+        ok: true,
+        statusText: 'OK',
+      });
+
+    await uploadBlob(blob, filename, folderId);
+    await uploadBlob(blob, filename, folderId);
+
+    const firstSessionId = mockIdbPut.mock.calls[0][1].id;
+    const secondSessionId = mockIdbPut.mock.calls[1][1].id;
+    expect(firstSessionId).toMatch(/^same-name\.jpg:/);
+    expect(secondSessionId).toMatch(/^same-name\.jpg:/);
+    expect(firstSessionId).not.toBe(secondSessionId);
+    expect(mockIdbGet).toHaveBeenNthCalledWith(
+      1,
+      'uploadSessions',
+      firstSessionId,
+    );
+    expect(mockIdbGet).toHaveBeenNthCalledWith(
+      2,
+      'uploadSessions',
+      secondSessionId,
+    );
   });
 });

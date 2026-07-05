@@ -28,7 +28,8 @@ type CameraButtonProps = {
     filename: string,
     shot_at: number,
     audioBlob?: Blob,
-  ) => void;
+    batch?: { index: number; total: number },
+  ) => void | Promise<void>;
 };
 
 export function CameraButton({
@@ -39,6 +40,7 @@ export function CameraButton({
   onCaptured,
 }: CameraButtonProps): JSX.Element {
   const inputRef = useRef<HTMLInputElement>(null);
+  const libraryInputRef = useRef<HTMLInputElement>(null);
   const previewUrlRef = useRef<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [filenameLabel, setFilenameLabel] = useState("");
@@ -203,13 +205,11 @@ export function CameraButton({
     };
   }, []);
 
-  async function onFileChange(e: ChangeEvent<HTMLInputElement>): Promise<void> {
-    const file = e.target.files?.[0];
-    e.target.value = "";
-    if (!file) {
-      return;
-    }
-
+  async function processSelectedFile(
+    file: File,
+    audioBlob?: Blob,
+    batch?: { index: number; total: number },
+  ): Promise<void> {
     const { processCapturedFile, CameraCaptureError } = await import(
       "@/app/lib/camera"
     );
@@ -245,13 +245,32 @@ export function CameraButton({
     setPreviewUrl(url);
     setFilenameLabel(filename);
 
+    await onCaptured(blob, filename, shot_at, audioBlob, batch);
+  }
+
+  async function onFileChange(e: ChangeEvent<HTMLInputElement>): Promise<void> {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) {
+      return;
+    }
+
     const pendingAudio = pendingAudioRef.current;
     pendingAudioRef.current = null;
+    await processSelectedFile(file, pendingAudio ?? undefined);
+  }
 
-    if (pendingAudio) {
-      onCaptured(blob, filename, shot_at, pendingAudio);
-    } else {
-      onCaptured(blob, filename, shot_at);
+  async function onLibraryFileChange(
+    e: ChangeEvent<HTMLInputElement>,
+  ): Promise<void> {
+    const files = Array.from(e.target.files ?? []);
+    e.target.value = "";
+    const total = files.length;
+    for (let index = 0; index < total; index += 1) {
+      await processSelectedFile(files[index], undefined, {
+        index: index + 1,
+        total,
+      });
     }
   }
 
@@ -275,6 +294,14 @@ export function CameraButton({
         capture="environment"
         className="hidden"
         onChange={(ev) => void onFileChange(ev)}
+      />
+      <input
+        ref={libraryInputRef}
+        type="file"
+        accept="image/*"
+        multiple
+        className="hidden"
+        onChange={(ev) => void onLibraryFileChange(ev)}
       />
       <div className="relative w-full">
         {isRecording ? (
@@ -323,6 +350,15 @@ export function CameraButton({
           <span>撮影する</span>
         </button>
       </div>
+      <button
+        type="button"
+        onClick={() => libraryInputRef.current?.click()}
+        data-testid="library-upload-button"
+        className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-hairline bg-ink-800/60 px-4 text-sm font-medium text-ink-100 transition hover:border-white/20 hover:bg-ink-800"
+      >
+        <span aria-hidden className="text-base">▦</span>
+        <span>ライブラリから選択</span>
+      </button>
       {!hidePreview && previewUrl ? (
         <div className="flex flex-col items-center gap-2 rounded-2xl border border-hairline bg-ink-800/40 px-3 py-3 shadow-card">
           {/* eslint-disable-next-line @next/next/no-img-element -- blob preview */}

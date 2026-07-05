@@ -15,7 +15,7 @@ import { buildCaptureRecord, putCapture } from "@/app/lib/captures-db";
 
 import { SignInButton } from "@/app/components/SignInButton";
 import { InviteBanner } from "@/app/components/InviteBanner";
-import { useCallback, useEffect, useState, type JSX } from "react";
+import { useCallback, useEffect, useRef, useState, type JSX } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { idbGet, idbPut } from "@/app/lib/idb";
@@ -36,6 +36,27 @@ type CaptureInflight = {
   analysis: CaptureAnalysis | null;
   error: string | null;
 };
+
+type CaptureBatchProgress = { index: number; total: number };
+
+const BACKOFF_RETRY_MS = 800;
+
+async function wait(ms: number): Promise<void> {
+  await new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function withOneBackoffRetry<T>(fn: () => Promise<T>): Promise<T> {
+  try {
+    return await fn();
+  } catch (firstError) {
+    await wait(BACKOFF_RETRY_MS);
+    try {
+      return await fn();
+    } catch {
+      throw firstError;
+    }
+  }
+}
 
 function StatusPill({
   label,
@@ -72,6 +93,7 @@ export default function HomeContent(): JSX.Element {
   const [signedIn, setSignedIn] = useState(false);
   const [captures, setCaptures] = useState<CaptureInflight[]>([]);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const batchFailureCountRef = useRef(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -234,16 +256,18 @@ export default function HomeContent(): JSX.Element {
       filename: string,
       shot_at: number,
       audioBlob?: Blob,
+      batch?: CaptureBatchProgress,
     ): Promise<void> => {
-      setStatusMessage(`「${filename}」を処理中…`);
+      if (batch?.index === 1) {
+        batchFailureCountRef.current = 0;
+      }
 
-      const reader = new FileReader();
-      reader.readAsDataURL(blob);
-      reader.onloadend = () => {
-        const base64data = reader.result;
-        if (typeof base64data === "string") {
-          }
-      };
+      const progressLabel = batch ? `(${batch.index}/${batch.total}) ` : "";
+      const captureLimit = Math.min(10, Math.max(5, batch?.total ?? 1));
+      const uploadSessionId = `${filename}:${shot_at}:${Date.now()}:${Math.random()
+        .toString(36)
+        .slice(2)}`;
+      setStatusMessage(`${progressLabel}「${filename}」を処理中…`);
 
       if (!folderId) {
         setStatusMessage(
@@ -253,10 +277,14 @@ export default function HomeContent(): JSX.Element {
       }
 
       try {
-        setStatusMessage("Google Driveへアップロード中…");
-        const { fileId } = await uploadBlob(blob, filename, folderId);
+        setStatusMessage(`${progressLabel}Google Driveへアップロード中…`);
+        const { fileId } = await withOneBackoffRetry(() =>
+          uploadBlob(blob, filename, folderId, undefined, {
+            sessionId: uploadSessionId,
+          }),
+        );
 
-        setStatusMessage("アップロード完了");
+        setStatusMessage(`${progressLabel}AI 解析中…`);
         const driveUrl = `https://drive.google.com/file/d/${fileId}/view`;
         const newInflight: CaptureInflight = {
           file_id: fileId,
@@ -268,43 +296,55 @@ export default function HomeContent(): JSX.Element {
           image: blob,
           audio: audioBlob ?? null,
         };
-        setCaptures((prev) => [newInflight, ...prev].slice(0, 5));
-        void (async () => {
-          try {
-            const result = await analyzeCapture({ image: blob, audio: audioBlob ?? null });
-            const routedToParent = await persistAnalysisAndRoute(fileId, result);
-            void putCapture(
-              buildCaptureRecord({
-                file_id: fileId,
-                drive_name: filename,
-                drive_url: driveUrl,
-                parent_id: routedToParent ?? folderId ?? undefined,
-                analysis: result,
-                routed_to: routedToParent,
-              }),
-            ).catch((err) => console.error("captures IDB write failed", err));
-            setCaptures((prev) =>
-              prev.map((c) =>
-                c.file_id === fileId
-                  ? { ...c, state: "ready", analysis: result }
-                  : c,
-              ),
-            );
-          } catch (err) {
-            const msg = err instanceof Error ? err.message : String(err);
-            setCaptures((prev) =>
-              prev.map((c) =>
-                c.file_id === fileId ? { ...c, state: "error", error: msg } : c,
-              ),
-            );
-          }
-        })();
+        setCaptures((prev) => [newInflight, ...prev].slice(0, captureLimit));
 
+        try {
+          const result = await withOneBackoffRetry(() =>
+            analyzeCapture({ image: blob, audio: audioBlob ?? null }),
+          );
+          const routedToParent = await persistAnalysisAndRoute(fileId, result);
+          void putCapture(
+            buildCaptureRecord({
+              file_id: fileId,
+              drive_name: filename,
+              drive_url: driveUrl,
+              parent_id: routedToParent ?? folderId ?? undefined,
+              analysis: result,
+              routed_to: routedToParent,
+            }),
+          ).catch((err) => console.error("captures IDB write failed", err));
+          setCaptures((prev) =>
+            prev.map((c) =>
+              c.file_id === fileId
+                ? { ...c, state: "ready", analysis: result }
+                : c,
+            ),
+          );
+          setStatusMessage(`${progressLabel}完了`);
+        } catch (err) {
+          batchFailureCountRef.current += 1;
+          const msg = err instanceof Error ? err.message : String(err);
+          setCaptures((prev) =>
+            prev.map((c) =>
+              c.file_id === fileId ? { ...c, state: "error", error: msg } : c,
+            ),
+          );
+          setStatusMessage(`${progressLabel}AI 解析に失敗しました: ${msg}`);
+        }
 
       } catch (error) {
         console.error("Upload or webhook failed:", error);
+        batchFailureCountRef.current += 1;
         const msg = error instanceof Error ? error.message : String(error);
-        setStatusMessage(`失敗: ${msg}`);
+        setStatusMessage(`${progressLabel}失敗: ${msg}`);
+      } finally {
+        if (batch && batch.index === batch.total) {
+          const failures = batchFailureCountRef.current;
+          const succeeded = batch.total - failures;
+          setStatusMessage(
+            `複数アップロード完了: 成功 ${succeeded}/${batch.total}, 失敗 ${failures}`,
+          );
+        }
       }
     },
     [folderId, persistAnalysisAndRoute],
