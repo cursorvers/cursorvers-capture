@@ -351,6 +351,14 @@ export default function HistoryPage(): JSX.Element {
           );
           setSelected((s) => (s && s.id === fileId ? { ...s, name: newName } : s));
         }}
+        onDocTypeChanged={(fileId, docType) => {
+          const apply = (e: HistoryEntry): HistoryEntry =>
+            e.id === fileId && e.analysis
+              ? { ...e, analysis: { ...e.analysis, doc_type: docType } }
+              : e;
+          setEntries((prev) => prev.map(apply));
+          setSelected((s) => (s ? apply(s) : s));
+        }}
       />
     </div>
   );

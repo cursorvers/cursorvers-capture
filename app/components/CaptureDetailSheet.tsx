@@ -6,14 +6,26 @@ import { CommentThread } from "@/app/components/CommentThread";
 import { getCurrentToken } from "@/app/lib/gis";
 import { renameDriveFile } from "@/app/lib/drive";
 import { getCapture, putCapture } from "@/app/lib/captures-db";
+import { idbGet } from "@/app/lib/idb";
+import {
+  retargetCaptureDocType,
+  undoRetargetCaptureDocType,
+  type RetargetUndo,
+} from "@/app/lib/capture-routing";
+import { DOC_TYPE_LABEL, type DocType } from "@/app/lib/doc-routing";
 
 type Props = {
   entry: HistoryEntry | null;
   onClose: () => void;
   onRenamed?: (fileId: string, newName: string) => void;
+  onDocTypeChanged?: (fileId: string, docType: DocType) => void;
 };
 
-const DOC_BADGE: Record<string, { label: string; tone: string }> = {
+type ConfigFolderRecord = { key: "folder_id"; value: string };
+
+const DOC_TYPES: DocType[] = ["receipt", "memo", "business_card", "other"];
+
+const DOC_BADGE: Record<DocType, { label: string; tone: string }> = {
   receipt: { label: "📄 領収書", tone: "border-amber-400/40 bg-amber-400/10 text-amber-200" },
   memo: { label: "📝 メモ", tone: "border-sky-400/40 bg-sky-400/10 text-sky-200" },
   business_card: { label: "💳 名刺", tone: "border-emerald-400/40 bg-emerald-400/10 text-emerald-200" },
@@ -39,12 +51,17 @@ function CodexAvatar(): JSX.Element {
   );
 }
 
-export function CaptureDetailSheet({ entry, onClose, onRenamed }: Props): JSX.Element | null {
+export function CaptureDetailSheet({ entry, onClose, onRenamed, onDocTypeChanged }: Props): JSX.Element | null {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
   const [saving, setSaving] = useState(false);
   const [renameError, setRenameError] = useState<string | null>(null);
   const [currentName, setCurrentName] = useState<string>("");
+  const [currentDocType, setCurrentDocType] = useState<DocType>("other");
+  const [routingBusy, setRoutingBusy] = useState(false);
+  const [routingMessage, setRoutingMessage] = useState<string | null>(null);
+  const [undo, setUndo] = useState<RetargetUndo | null>(null);
+  const [driveReady, setDriveReady] = useState(false);
 
   // entry が変わったら state リセット
   useEffect(() => {
@@ -52,7 +69,25 @@ export function CaptureDetailSheet({ entry, onClose, onRenamed }: Props): JSX.El
     setDraft(entry?.name ?? "");
     setCurrentName(entry?.name ?? "");
     setRenameError(null);
-  }, [entry?.id, entry?.name]);
+    setCurrentDocType(entry?.analysis?.doc_type ?? "other");
+    setRoutingBusy(false);
+    setRoutingMessage(null);
+    setUndo(null);
+  }, [entry?.id, entry?.name, entry?.analysis?.doc_type]);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function refreshTokenState(): Promise<void> {
+      const tok = await getCurrentToken();
+      if (!cancelled) setDriveReady(tok !== null);
+    }
+    void refreshTokenState();
+    const id = setInterval(() => void refreshTokenState(), 3000);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, []);
 
   async function handleRenameSave(): Promise<void> {
     if (!entry) return;
@@ -82,6 +117,57 @@ export function CaptureDetailSheet({ entry, onClose, onRenamed }: Props): JSX.El
     }
   }
 
+  async function handleDocTypeChange(nextDocType: DocType): Promise<void> {
+    if (!entry || nextDocType === currentDocType) return;
+    const previousDocType = currentDocType;
+    setRoutingBusy(true);
+    setRoutingMessage(null);
+    setUndo(null);
+    setCurrentDocType(nextDocType);
+    onDocTypeChanged?.(entry.id, nextDocType);
+    try {
+      const tok = await getCurrentToken();
+      if (!tok) throw new Error("サインインが切れています。再認可してください。");
+      const folderRec = await idbGet<ConfigFolderRecord>("config", "folder_id");
+      if (!folderRec?.value) {
+        throw new Error("メイン保存先フォルダが未設定です。");
+      }
+      const result = await retargetCaptureDocType({
+        file_id: entry.id,
+        doc_type: nextDocType,
+        mainFolderId: folderRec.value,
+        accessToken: tok,
+      });
+      setUndo(result.undo);
+      setRoutingMessage(`${DOC_TYPE_LABEL[nextDocType]}へ振り分けました。`);
+    } catch (e) {
+      setCurrentDocType(previousDocType);
+      onDocTypeChanged?.(entry.id, previousDocType);
+      setRoutingMessage(e instanceof Error ? e.message : String(e));
+    } finally {
+      setRoutingBusy(false);
+    }
+  }
+
+  async function handleUndoDocTypeChange(): Promise<void> {
+    if (!entry || !undo) return;
+    setRoutingBusy(true);
+    setRoutingMessage(null);
+    try {
+      const tok = await getCurrentToken();
+      if (!tok) throw new Error("サインインが切れています。再認可してください。");
+      const restored = await undoRetargetCaptureDocType({ undo, accessToken: tok });
+      setCurrentDocType(restored.doc_type);
+      onDocTypeChanged?.(entry.id, restored.doc_type);
+      setUndo(null);
+      setRoutingMessage("振り分け先を元に戻しました。");
+    } catch (e) {
+      setRoutingMessage(e instanceof Error ? e.message : String(e));
+    } finally {
+      setRoutingBusy(false);
+    }
+  }
+
   useEffect(() => {
     if (!entry) return;
     const onKey = (e: KeyboardEvent) => {
@@ -97,7 +183,7 @@ export function CaptureDetailSheet({ entry, onClose, onRenamed }: Props): JSX.El
 
   if (!entry) return null;
   const a = entry.analysis;
-  const badge = a ? DOC_BADGE[a.doc_type] ?? DOC_BADGE.other : null;
+  const badge = a ? DOC_BADGE[currentDocType] ?? DOC_BADGE.other : null;
   const amount = a ? formatAmount(a.extracted?.amount, a.extracted?.currency) : null;
 
   return (
@@ -165,6 +251,52 @@ export function CaptureDetailSheet({ entry, onClose, onRenamed }: Props): JSX.El
                     <span className="inline-flex items-center gap-1 rounded-full border border-hairline bg-ink-900/60 px-2 py-0.5 text-[11px] text-ink-300">
                       📁 {a.suggested_folder}
                     </span>
+                  ) : null}
+                </div>
+                <div className="rounded-xl border border-hairline bg-ink-800/25 p-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[11px] font-medium text-ink-300">
+                      振り分け先
+                    </span>
+                    {!driveReady ? (
+                      <span className="text-[10px] text-ink-500">再認可が必要です</span>
+                    ) : null}
+                  </div>
+                  <div className="mt-2 grid grid-cols-2 gap-1.5 sm:grid-cols-4">
+                    {DOC_TYPES.map((type) => {
+                      const selected = currentDocType === type;
+                      return (
+                        <button
+                          key={type}
+                          type="button"
+                          onClick={() => void handleDocTypeChange(type)}
+                          disabled={routingBusy || !driveReady || selected}
+                          aria-pressed={selected}
+                          className={`inline-flex h-8 items-center justify-center rounded-full border px-2 text-[11px] font-medium transition ${
+                            selected
+                              ? "border-accent/50 bg-accent/15 text-accent-soft"
+                              : "border-hairline bg-ink-900/60 text-ink-300 hover:border-white/20 hover:text-ink-100"
+                          } disabled:cursor-not-allowed disabled:opacity-55`}
+                        >
+                          {DOC_TYPE_LABEL[type]}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {routingMessage ? (
+                    <div className="mt-2 flex items-center justify-between gap-2 rounded-lg border border-hairline bg-ink-950/40 px-3 py-2">
+                      <span className="text-[11px] text-ink-200">{routingMessage}</span>
+                      {undo ? (
+                        <button
+                          type="button"
+                          onClick={() => void handleUndoDocTypeChange()}
+                          disabled={routingBusy || !driveReady}
+                          className="shrink-0 rounded-full border border-accent/40 bg-accent/10 px-2.5 py-1 text-[11px] font-medium text-accent-soft disabled:opacity-50"
+                        >
+                          Undo
+                        </button>
+                      ) : null}
+                    </div>
                   ) : null}
                 </div>
                 {a.extracted?.items && a.extracted.items.length > 0 ? (

@@ -44,6 +44,10 @@ import {
   revokeFromHistory,
   type ShareRecord,
 } from "@/app/lib/share-history";
+import {
+  backfillUnroutedCaptures,
+  type BackfillProgress,
+} from "@/app/lib/capture-routing";
 
 type ConfigFolderRecord = { key: "folder_id"; value: string };
 type FolderHistoryRecord = {
@@ -233,6 +237,9 @@ function SettingsContent(): JSX.Element {
   const [installPlatform, setInstallPlatform] = useState<"ios" | "android">("ios");
   const [pasteBusy, setPasteBusy] = useState(false);
   const [pickerBusy, setPickerBusy] = useState(false);
+  const [backfillBusy, setBackfillBusy] = useState(false);
+  const [backfillProgress, setBackfillProgress] =
+    useState<BackfillProgress | null>(null);
   const [themePreference, setThemePreferenceState] =
     useState<ThemePreference>("dark");
   const [textSizePreference, setTextSizePreferenceState] =
@@ -558,6 +565,35 @@ function SettingsContent(): JSX.Element {
     }
   };
 
+  const handleBackfillUnrouted = useCallback(async (): Promise<void> => {
+    if (!folderId) {
+      setStatusMessage("先にメイン保存先フォルダを設定してください。");
+      return;
+    }
+    setBackfillBusy(true);
+    setBackfillProgress(null);
+    setStatusMessage(null);
+    try {
+      const tok = await getCurrentToken();
+      if (!tok) {
+        setStatusMessage("Google サインインの有効期限が切れています。設定→再認可 をお試しください。");
+        return;
+      }
+      const result = await backfillUnroutedCaptures({
+        mainFolderId: folderId,
+        accessToken: tok,
+        onProgress: setBackfillProgress,
+      });
+      setStatusMessage(
+        `未振り分けの整理が完了しました。成功 ${result.success}、スキップ ${result.skipped}、失敗 ${result.failed}。`,
+      );
+    } catch (e) {
+      setStatusMessage(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBackfillBusy(false);
+    }
+  }, [folderId]);
+
   const handleClearAllData = async () => {
     if (
       window.confirm(
@@ -864,6 +900,26 @@ function SettingsContent(): JSX.Element {
           mainFolderId={folderId}
           mainFolderLabel={mainFolderName}
         />
+        <div className="flex flex-col gap-2 py-4">
+          <p className="text-[11px] text-ink-400">
+            このアプリで記録した未振り分けファイルを整理します (アプリ外でアップロードしたファイルは対象外)
+          </p>
+          <button
+            type="button"
+            onClick={() => void handleBackfillUnrouted()}
+            disabled={backfillBusy || !folderId || !driveConnected}
+            className="inline-flex h-10 w-full items-center justify-center rounded-full border border-accent/40 bg-accent/10 px-4 text-[12px] font-medium text-accent-soft transition hover:bg-accent/20 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {backfillBusy ? "整理中…" : "未振り分けを一括整理"}
+          </button>
+          {backfillProgress ? (
+            <p className="text-[11px] text-ink-400" aria-live="polite">
+              {backfillProgress.done}/{backfillProgress.total} 件
+              {" / "}
+              成功 {backfillProgress.success}、スキップ {backfillProgress.skipped}、失敗 {backfillProgress.failed}
+            </p>
+          ) : null}
+        </div>
       </Group>
 
       {/* ─────────── 機能 ─────────── */}
