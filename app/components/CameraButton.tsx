@@ -319,7 +319,7 @@ export function CameraButton({
             <p className="font-mono text-2xl tabular-nums text-red-50">
               {countdownSec.toFixed(1)}
             </p>
-            <p className="text-center text-[11px] text-red-100/70">
+            <p className="text-center text-[0.6875rem] text-red-100/70">
               指を離すと録音終了
             </p>
           </div>
@@ -342,7 +342,7 @@ export function CameraButton({
           }}
           className={
             hero
-              ? "group relative inline-flex h-14 w-full items-center justify-center gap-2 overflow-hidden rounded-2xl bg-accent-grad px-6 text-[15px] font-semibold tracking-tight text-white shadow-glow transition active:scale-[0.98] hover:-translate-y-px hover:shadow-[0_0_44px_-4px_rgba(249,115,22,0.5)]"
+              ? "group relative inline-flex h-14 w-full items-center justify-center gap-2 overflow-hidden rounded-2xl bg-accent-grad px-6 text-[0.9375rem] font-semibold tracking-tight text-white shadow-glow transition active:scale-[0.98] hover:-translate-y-px hover:shadow-[0_0_44px_-4px_rgba(249,115,22,0.5)]"
               : "inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-hairline bg-ink-800/60 px-4 text-sm font-medium text-ink-100 transition hover:border-white/20 hover:bg-ink-800"
           }
         >
@@ -367,7 +367,7 @@ export function CameraButton({
             alt="撮影プレビュー"
             className="max-h-64 w-auto rounded-lg"
           />
-          <p className="break-all text-[11px] text-ink-400">{filenameLabel}</p>
+          <p className="break-all text-[0.6875rem] text-ink-400">{filenameLabel}</p>
         </div>
       ) : null}
     </div>

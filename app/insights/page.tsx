@@ -179,7 +179,7 @@ function InsightsPageContent(): JSX.Element {
                     }}
                     title={`${m.yearMonth}: ${m.count} 件`}
                   />
-                  <span className="text-[10px] text-gray-500">
+                  <span className="text-[0.625rem] text-gray-500">
                     {m.yearMonth.slice(5)}
                   </span>
                 </div>

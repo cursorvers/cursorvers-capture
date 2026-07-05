@@ -139,7 +139,7 @@ export function SignInButton({ minimal = false }: SignInButtonProps): JSX.Elemen
         </button>
       ) : minimal ? (
         <p
-          className="inline-flex items-center justify-center gap-2 text-center text-[12px] text-ink-300"
+          className="inline-flex items-center justify-center gap-2 text-center text-[0.75rem] text-ink-300"
           data-testid="signin-minimal-status"
         >
           <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-400" />
@@ -152,7 +152,7 @@ export function SignInButton({ minimal = false }: SignInButtonProps): JSX.Elemen
         </div>
       )}
       {error ? (
-        <p className="text-center text-[12px] text-red-300/90">{error}</p>
+        <p className="text-center text-[0.75rem] text-red-300/90">{error}</p>
       ) : null}
     </div>
   );

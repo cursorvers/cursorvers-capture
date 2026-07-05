@@ -71,8 +71,8 @@ export function SWRegistry(): JSX.Element | null {
   return (
     <div className="fixed inset-x-0 bottom-3 z-50 flex justify-center px-3">
       <div className="flex w-full max-w-md items-center gap-3 rounded-2xl border border-accent/40 bg-ink-900/95 px-4 py-3 shadow-card backdrop-blur-sm">
-        <span aria-hidden className="text-[18px]">✨</span>
-        <p className="flex-1 text-[12.5px] leading-snug text-ink-100">
+        <span aria-hidden className="text-[1.125rem]">✨</span>
+        <p className="flex-1 text-[0.78125rem] leading-snug text-ink-100">
           アプリの新しい版があります
         </p>
         <button
@@ -84,7 +84,7 @@ export function SWRegistry(): JSX.Element | null {
               window.location.reload();
             }
           }}
-          className="inline-flex h-8 items-center rounded-full bg-accent px-3 text-[12px] font-medium text-white transition hover:bg-accent/90"
+          className="inline-flex h-8 items-center rounded-full bg-accent px-3 text-[0.75rem] font-medium text-white transition hover:bg-accent/90"
         >
           今すぐ更新
         </button>

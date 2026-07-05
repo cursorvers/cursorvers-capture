@@ -56,11 +56,11 @@ export function DocTypeChip({ value, onChange }: Props): JSX.Element {
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium transition hover:brightness-125 ${current.tone}`}
+        className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[0.6875rem] font-medium transition hover:brightness-125 ${current.tone}`}
       >
         <span>{current.icon}</span>
         <span>{current.label}</span>
-        <span aria-hidden className="ml-0.5 text-[8px] opacity-60">▾</span>
+        <span aria-hidden className="ml-0.5 text-[0.5rem] opacity-60">▾</span>
       </button>
       {open ? (
         <ul className="absolute left-0 top-full z-30 mt-1 w-32 overflow-hidden rounded-xl border border-hairline bg-ink-900/95 shadow-card backdrop-blur">
@@ -72,7 +72,7 @@ export function DocTypeChip({ value, onChange }: Props): JSX.Element {
                   setOpen(false);
                   if (o.type !== value) void onChange(o.type);
                 }}
-                className={`flex w-full items-center gap-2 px-3 py-2 text-left text-[12px] transition hover:bg-white/5 ${
+                className={`flex w-full items-center gap-2 px-3 py-2 text-left text-[0.75rem] transition hover:bg-white/5 ${
                   o.type === value ? "text-accent-soft" : "text-ink-200"
                 }`}
               >

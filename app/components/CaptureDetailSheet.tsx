@@ -45,7 +45,7 @@ function CodexAvatar(): JSX.Element {
     <span className="relative inline-flex h-9 w-9 shrink-0 items-center justify-center">
       <span className="absolute inset-0 rounded-full bg-accent/30 blur-md" />
       <span className="absolute inset-0 rounded-full border border-accent/40 bg-gradient-to-br from-accent/40 to-accent/10" />
-      <span className="relative text-[11px] font-semibold tracking-tight text-ink-50">
+      <span className="relative text-[0.6875rem] font-semibold tracking-tight text-ink-50">
         cdx
       </span>
     </span>
@@ -236,44 +236,44 @@ export function CaptureDetailSheet({ entry, onClose, onRenamed, onDocTypeChanged
               <CodexAvatar />
               <div className="flex-1 space-y-2">
                 <div className="rounded-2xl rounded-tl-md border border-hairline bg-ink-800/40 px-4 py-3">
-                  <p className="whitespace-pre-line text-[14px] leading-relaxed text-ink-50">
+                  <p className="whitespace-pre-line text-[0.875rem] leading-relaxed text-ink-50">
                     {a.comment}
                   </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-1.5">
                   {badge ? (
-                    <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${badge.tone}`}>
+                    <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[0.6875rem] font-medium ${badge.tone}`}>
                       {badge.label}
                     </span>
                   ) : null}
                   {a.extracted?.vendor ? (
-                    <span className="inline-flex items-center gap-1 rounded-full border border-hairline bg-ink-800/60 px-2 py-0.5 text-[11px] text-ink-100">
+                    <span className="inline-flex items-center gap-1 rounded-full border border-hairline bg-ink-800/60 px-2 py-0.5 text-[0.6875rem] text-ink-100">
                       🏬 {a.extracted.vendor}
                     </span>
                   ) : null}
                   {amount ? (
-                    <span className="inline-flex items-center gap-1 rounded-full border border-hairline bg-ink-800/60 px-2 py-0.5 text-[11px] font-medium text-ink-100">
+                    <span className="inline-flex items-center gap-1 rounded-full border border-hairline bg-ink-800/60 px-2 py-0.5 text-[0.6875rem] font-medium text-ink-100">
                       💴 {amount}
                     </span>
                   ) : null}
                   {a.extracted?.date_iso ? (
-                    <span className="inline-flex items-center gap-1 rounded-full border border-hairline bg-ink-800/60 px-2 py-0.5 text-[11px] text-ink-100">
+                    <span className="inline-flex items-center gap-1 rounded-full border border-hairline bg-ink-800/60 px-2 py-0.5 text-[0.6875rem] text-ink-100">
                       🗓 {a.extracted.date_iso}
                     </span>
                   ) : null}
                   {a.suggested_folder ? (
-                    <span className="inline-flex items-center gap-1 rounded-full border border-hairline bg-ink-900/60 px-2 py-0.5 text-[11px] text-ink-300">
+                    <span className="inline-flex items-center gap-1 rounded-full border border-hairline bg-ink-900/60 px-2 py-0.5 text-[0.6875rem] text-ink-300">
                       📁 {a.suggested_folder}
                     </span>
                   ) : null}
                 </div>
                 <div className="rounded-xl border border-hairline bg-ink-800/25 p-3">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-[11px] font-medium text-ink-300">
+                    <span className="text-[0.6875rem] font-medium text-ink-300">
                       振り分け先
                     </span>
                     {!driveReady ? (
-                      <span className="text-[10px] text-ink-500">再認可が必要です</span>
+                      <span className="text-[0.625rem] text-ink-500">再認可が必要です</span>
                     ) : null}
                   </div>
                   <div className="mt-2 grid grid-cols-2 gap-1.5 sm:grid-cols-4">
@@ -286,7 +286,7 @@ export function CaptureDetailSheet({ entry, onClose, onRenamed, onDocTypeChanged
                           onClick={() => void handleDocTypeChange(type)}
                           disabled={routingBusy || !driveReady || selected}
                           aria-pressed={selected}
-                          className={`inline-flex h-8 items-center justify-center rounded-full border px-2 text-[11px] font-medium transition ${
+                          className={`inline-flex h-8 items-center justify-center rounded-full border px-2 text-[0.6875rem] font-medium transition ${
                             selected
                               ? "border-accent/50 bg-accent/15 text-accent-soft"
                               : "border-hairline bg-ink-900/60 text-ink-300 hover:border-white/20 hover:text-ink-100"
@@ -299,13 +299,13 @@ export function CaptureDetailSheet({ entry, onClose, onRenamed, onDocTypeChanged
                   </div>
                   {routingMessage ? (
                     <div className="mt-2 flex items-center justify-between gap-2 rounded-lg border border-hairline bg-ink-950/40 px-3 py-2">
-                      <span className="text-[11px] text-ink-200">{routingMessage}</span>
+                      <span className="text-[0.6875rem] text-ink-200">{routingMessage}</span>
                       {undo ? (
                         <button
                           type="button"
                           onClick={() => void handleUndoDocTypeChange()}
                           disabled={routingBusy || !driveReady}
-                          className="shrink-0 rounded-full border border-accent/40 bg-accent/10 px-2.5 py-1 text-[11px] font-medium text-accent-soft disabled:opacity-50"
+                          className="shrink-0 rounded-full border border-accent/40 bg-accent/10 px-2.5 py-1 text-[0.6875rem] font-medium text-accent-soft disabled:opacity-50"
                         >
                           Undo
                         </button>
@@ -314,7 +314,7 @@ export function CaptureDetailSheet({ entry, onClose, onRenamed, onDocTypeChanged
                   ) : null}
                 </div>
                 {a.extracted?.items && a.extracted.items.length > 0 ? (
-                  <ul className="rounded-xl border border-hairline bg-ink-800/30 px-4 py-3 text-[12px] leading-relaxed text-ink-100">
+                  <ul className="rounded-xl border border-hairline bg-ink-800/30 px-4 py-3 text-[0.75rem] leading-relaxed text-ink-100">
                     {a.extracted.items.map((item, i) => (
                       <li key={i} className="list-inside list-disc">
                         {item}
@@ -325,7 +325,7 @@ export function CaptureDetailSheet({ entry, onClose, onRenamed, onDocTypeChanged
               </div>
             </div>
           ) : (
-            <p className="text-[13px] text-ink-300">
+            <p className="text-[0.8125rem] text-ink-300">
               この写真には Codex の記録がありません
             </p>
           )}
@@ -336,7 +336,7 @@ export function CaptureDetailSheet({ entry, onClose, onRenamed, onDocTypeChanged
 
           {editing ? (
             <div className="flex flex-col gap-1.5 rounded-xl border border-accent/40 bg-ink-800/40 p-3">
-              <label className="text-[10px] uppercase tracking-[0.14em] text-ink-400">
+              <label className="text-[0.625rem] uppercase tracking-[0.14em] text-ink-400">
                 題名
               </label>
               <input
@@ -355,7 +355,7 @@ export function CaptureDetailSheet({ entry, onClose, onRenamed, onDocTypeChanged
                 spellCheck={false}
                 autoCapitalize="off"
                 autoCorrect="off"
-                className="rounded-lg border border-hairline bg-ink-950/60 px-3 py-2 text-[13px] text-ink-50 placeholder:text-ink-500 focus:border-accent/60 focus:outline-none"
+                className="rounded-lg border border-hairline bg-ink-950/60 px-3 py-2 text-[0.8125rem] text-ink-50 placeholder:text-ink-500 focus:border-accent/60 focus:outline-none"
                 aria-label="ファイルの題名"
               />
               <div className="flex gap-2">
@@ -363,7 +363,7 @@ export function CaptureDetailSheet({ entry, onClose, onRenamed, onDocTypeChanged
                   type="button"
                   onClick={() => void handleRenameSave()}
                   disabled={saving || !draft.trim()}
-                  className="inline-flex h-9 flex-1 items-center justify-center rounded-full bg-accent px-3 text-[12px] font-medium text-white transition hover:bg-accent/90 disabled:opacity-50"
+                  className="inline-flex h-9 flex-1 items-center justify-center rounded-full bg-accent px-3 text-[0.75rem] font-medium text-white transition hover:bg-accent/90 disabled:opacity-50"
                 >
                   {saving ? "保存中…" : "保存"}
                 </button>
@@ -375,13 +375,13 @@ export function CaptureDetailSheet({ entry, onClose, onRenamed, onDocTypeChanged
                     setRenameError(null);
                   }}
                   disabled={saving}
-                  className="inline-flex h-9 items-center justify-center rounded-full border border-hairline bg-ink-900/60 px-3 text-[12px] text-ink-300 hover:text-ink-100"
+                  className="inline-flex h-9 items-center justify-center rounded-full border border-hairline bg-ink-900/60 px-3 text-[0.75rem] text-ink-300 hover:text-ink-100"
                 >
                   キャンセル
                 </button>
               </div>
               {renameError ? (
-                <p className="text-[11px] text-red-300/80">{renameError}</p>
+                <p className="text-[0.6875rem] text-red-300/80">{renameError}</p>
               ) : null}
             </div>
           ) : (
@@ -394,10 +394,10 @@ export function CaptureDetailSheet({ entry, onClose, onRenamed, onDocTypeChanged
               className="flex w-full items-center justify-between gap-2 rounded-xl border border-hairline bg-ink-800/20 px-3 py-2 text-left transition hover:border-accent/40 hover:bg-ink-800/40"
               aria-label="題名を編集"
             >
-              <span className="truncate text-[12px] text-ink-300">
+              <span className="truncate text-[0.75rem] text-ink-300">
                 {currentName || entry.name}
               </span>
-              <span className="shrink-0 text-[10px] uppercase tracking-[0.12em] text-ink-500">
+              <span className="shrink-0 text-[0.625rem] uppercase tracking-[0.12em] text-ink-500">
                 ✎ 編集
               </span>
             </button>
@@ -407,7 +407,7 @@ export function CaptureDetailSheet({ entry, onClose, onRenamed, onDocTypeChanged
               href={entry.webViewLink}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex h-10 w-full items-center justify-center rounded-full border border-accent/40 bg-accent/10 px-4 text-[13px] font-medium text-accent-soft transition hover:bg-accent/20"
+              className="inline-flex h-10 w-full items-center justify-center rounded-full border border-accent/40 bg-accent/10 px-4 text-[0.8125rem] font-medium text-accent-soft transition hover:bg-accent/20"
             >
               Drive で開く ↗
             </a>

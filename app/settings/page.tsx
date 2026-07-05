@@ -130,11 +130,11 @@ function Row({
   return (
     <div className="flex items-start justify-between gap-4 py-4">
       <div className="flex min-w-0 flex-1 flex-col gap-1">
-        <p className="text-[13px] font-medium text-ink-100">{label}</p>
+        <p className="text-[0.8125rem] font-medium text-ink-100">{label}</p>
         {value ? (
-          <p className="break-all text-[12px] text-ink-300">{value}</p>
+          <p className="break-all text-[0.75rem] text-ink-300">{value}</p>
         ) : null}
-        {hint ? <p className="text-[11px] text-ink-500">{hint}</p> : null}
+        {hint ? <p className="text-[0.6875rem] text-ink-500">{hint}</p> : null}
       </div>
       {action ? <div className="shrink-0">{action}</div> : null}
     </div>
@@ -150,7 +150,7 @@ function Group({
 }): JSX.Element {
   return (
     <section className="flex flex-col">
-      <h2 className="mb-2 px-1 text-[12px] font-medium tracking-tight text-ink-400">
+      <h2 className="mb-2 px-1 text-[0.75rem] font-medium tracking-tight text-ink-400">
         {title}
       </h2>
       <div className="divide-y divide-hairline rounded-2xl border border-hairline bg-ink-900/40 px-5">
@@ -173,7 +173,7 @@ function SegmentedControl<T extends string>({
 }): JSX.Element {
   return (
     <div className="flex flex-col gap-2 py-4">
-      <p className="text-[13px] font-medium text-ink-100">{label}</p>
+      <p className="text-[0.8125rem] font-medium text-ink-100">{label}</p>
       <div className="grid grid-cols-3 gap-1 rounded-full border border-hairline bg-ink-950/50 p-1">
         {options.map((option) => {
           const selected = option.value === value;
@@ -183,7 +183,7 @@ function SegmentedControl<T extends string>({
               type="button"
               aria-pressed={selected}
               onClick={() => onChange(option.value)}
-              className={`h-9 rounded-full px-2 text-[12px] font-medium transition ${
+              className={`h-9 rounded-full px-2 text-[0.75rem] font-medium transition ${
                 selected
                   ? "bg-accent text-white shadow-sm"
                   : "text-ink-300 hover:bg-ink-800/70 hover:text-ink-100"
@@ -630,10 +630,10 @@ function SettingsContent(): JSX.Element {
     <div className="mx-auto flex max-w-md flex-col gap-9 px-5 pb-20 pt-10 sm:pt-14">
       {/* Page header */}
       <header className="flex flex-col gap-2.5">
-        <span className="text-[10px] uppercase tracking-[0.22em] text-ink-400">
+        <span className="text-[0.625rem] uppercase tracking-[0.22em] text-ink-400">
           Cursorvers Capture
         </span>
-        <h1 className="font-display text-[34px] font-semibold leading-[1.05] tracking-tightest text-ink-50 sm:text-[40px]">
+        <h1 className="font-display text-[2.125rem] font-semibold leading-[1.05] tracking-tightest text-ink-50 sm:text-[2.5rem]">
           設定
         </h1>
       </header>
@@ -641,7 +641,7 @@ function SettingsContent(): JSX.Element {
       {statusMessage ? (
         <div
           aria-live="polite"
-          className="rounded-xl border border-accent/25 bg-accent/[0.08] px-4 py-3 text-[12.5px] leading-relaxed text-accent-soft"
+          className="rounded-xl border border-accent/25 bg-accent/[0.08] px-4 py-3 text-[0.78125rem] leading-relaxed text-accent-soft"
         >
           {statusMessage}
         </div>
@@ -650,13 +650,13 @@ function SettingsContent(): JSX.Element {
       {/* ─────────── Hero: 保存先フォルダ ─────────── */}
       <section className="flex flex-col gap-5 rounded-3xl border border-hairline bg-gradient-to-b from-ink-800/60 to-ink-900/40 p-6 shadow-card">
         <div className="flex flex-col gap-1">
-          <span className="text-[10px] uppercase tracking-[0.18em] text-ink-400">
+          <span className="text-[0.625rem] uppercase tracking-[0.18em] text-ink-400">
             保存先フォルダの選択
           </span>
-          <p className="break-all font-display text-[22px] font-semibold tracking-tight text-ink-50">
+          <p className="break-all font-display text-[1.375rem] font-semibold tracking-tight text-ink-50">
             {folderShort ?? "まだ選択されていません"}
           </p>
-          <p className="text-[12px] text-ink-400">
+          <p className="text-[0.75rem] text-ink-400">
             撮影した画像はここで指定した Google Drive
             のフォルダへ直接保存されます。
           </p>
@@ -667,7 +667,7 @@ function SettingsContent(): JSX.Element {
           type="button"
           onClick={() => void handlePickFromDrive()}
           disabled={pickerBusy || !driveConnected}
-          className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-accent-grad px-5 text-[14px] font-semibold tracking-tight text-white shadow-glow transition active:scale-[0.98] hover:-translate-y-px disabled:opacity-60"
+          className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-accent-grad px-5 text-[0.875rem] font-semibold tracking-tight text-white shadow-glow transition active:scale-[0.98] hover:-translate-y-px disabled:opacity-60"
         >
           <DriveIcon />
           {pickerBusy ? "Drive を開いています…" : "Drive から選ぶ"}
@@ -678,7 +678,7 @@ function SettingsContent(): JSX.Element {
           type="button"
           onClick={() => void handlePasteFromClipboard()}
           disabled={pasteBusy}
-          className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-2xl border border-hairline bg-ink-900/70 px-5 text-[13px] font-medium text-ink-100 transition hover:border-white/15 hover:bg-ink-900 disabled:opacity-60"
+          className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-2xl border border-hairline bg-ink-900/70 px-5 text-[0.8125rem] font-medium text-ink-100 transition hover:border-white/15 hover:bg-ink-900 disabled:opacity-60"
         >
           <ClipboardIcon />
           {pasteBusy ? "貼り付け中…" : "クリップボードから貼り付け"}
@@ -688,7 +688,7 @@ function SettingsContent(): JSX.Element {
         <div className="flex flex-col gap-2">
           <label
             htmlFor="folder-picker-input"
-            className="text-[11px] font-medium tracking-tight text-ink-400"
+            className="text-[0.6875rem] font-medium tracking-tight text-ink-400"
           >
             または下の欄を長押し → 「ペースト」で URL を貼り付け
           </label>
@@ -705,7 +705,7 @@ function SettingsContent(): JSX.Element {
             autoCorrect="off"
             inputMode="url"
             enterKeyHint="done"
-            className="w-full rounded-2xl border border-hairline bg-ink-950/60 px-4 py-3.5 font-mono text-[12.5px] text-ink-100 placeholder:text-ink-500 focus:border-accent/60 focus:outline-none focus:ring-0"
+            className="w-full rounded-2xl border border-hairline bg-ink-950/60 px-4 py-3.5 font-mono text-[0.78125rem] text-ink-100 placeholder:text-ink-500 focus:border-accent/60 focus:outline-none focus:ring-0"
             aria-label="Google Drive の保存先フォルダ URL または ID"
           />
           <div className="flex gap-2">
@@ -713,7 +713,7 @@ function SettingsContent(): JSX.Element {
               type="button"
               onClick={() => void handleSelectFolder()}
               disabled={!folderInput.trim() && !folderId}
-              className="inline-flex h-11 flex-1 items-center justify-center rounded-2xl border border-hairline bg-ink-900/70 px-4 text-[13px] font-medium text-ink-100 transition hover:border-white/15 hover:bg-ink-900 disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex h-11 flex-1 items-center justify-center rounded-2xl border border-hairline bg-ink-900/70 px-4 text-[0.8125rem] font-medium text-ink-100 transition hover:border-white/15 hover:bg-ink-900 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {folderInput.trim() ? "このフォルダを選択" : "指定を解除"}
             </button>
@@ -721,7 +721,7 @@ function SettingsContent(): JSX.Element {
               <button
                 type="button"
                 onClick={() => void handleClearFolder()}
-                className="inline-flex h-11 items-center justify-center rounded-2xl border border-hairline bg-ink-900/60 px-4 text-[12.5px] text-ink-300 transition hover:border-red-400/40 hover:text-red-300"
+                className="inline-flex h-11 items-center justify-center rounded-2xl border border-hairline bg-ink-900/60 px-4 text-[0.78125rem] text-ink-300 transition hover:border-red-400/40 hover:text-red-300"
                 aria-label="保存先フォルダの指定を解除"
               >
                 解除
@@ -733,7 +733,7 @@ function SettingsContent(): JSX.Element {
         {/* History chips */}
         {visibleHistory.length > 0 ? (
           <div className="flex flex-col gap-2">
-            <span className="text-[11px] font-medium tracking-tight text-ink-400">
+            <span className="text-[0.6875rem] font-medium tracking-tight text-ink-400">
               最近選択したフォルダ
             </span>
             <div className="flex flex-wrap gap-2">
@@ -745,12 +745,12 @@ function SettingsContent(): JSX.Element {
                 return (
                   <div
                     key={entry.id}
-                    className="group inline-flex items-center gap-1 rounded-full border border-hairline bg-ink-900/60 pl-3 pr-1 text-[12px] text-ink-200 transition hover:border-white/20 hover:bg-ink-900"
+                    className="group inline-flex items-center gap-1 rounded-full border border-hairline bg-ink-900/60 pl-3 pr-1 text-[0.75rem] text-ink-200 transition hover:border-white/20 hover:bg-ink-900"
                   >
                     <button
                       type="button"
                       onClick={() => void handleApplyHistoryChip(entry.id)}
-                      className="inline-flex items-center gap-1.5 py-1.5 font-mono text-[11.5px]"
+                      className="inline-flex items-center gap-1.5 py-1.5 font-mono text-[0.71875rem]"
                       aria-label={`フォルダ ${shortId} を選択`}
                     >
                       <span
@@ -789,7 +789,7 @@ function SettingsContent(): JSX.Element {
           type="button"
           onClick={() => setHelperOpen((v) => !v)}
           aria-expanded={helperOpen}
-          className="inline-flex items-center gap-1.5 self-start rounded-md text-left text-[11.5px] text-ink-400 transition hover:text-ink-200"
+          className="inline-flex items-center gap-1.5 self-start rounded-md text-left text-[0.71875rem] text-ink-400 transition hover:text-ink-200"
         >
           <svg
             aria-hidden
@@ -802,7 +802,7 @@ function SettingsContent(): JSX.Element {
           <span>うまく行かない時 / 旧パス (URL 貼り付け)</span>
         </button>
         {helperOpen ? (
-          <div className="-mt-3 space-y-3 rounded-xl border border-hairline bg-ink-950/50 px-5 py-3.5 text-[12px] leading-relaxed text-ink-300">
+          <div className="-mt-3 space-y-3 rounded-xl border border-hairline bg-ink-950/50 px-5 py-3.5 text-[0.75rem] leading-relaxed text-ink-300">
             <p>
               <span className="font-medium text-ink-100">推奨:</span>{" "}
               上の「📁 Drive から選ぶ」ボタンを使ってください。
@@ -847,7 +847,7 @@ function SettingsContent(): JSX.Element {
             <button
               type="button"
               onClick={() => void handleSignOut()}
-              className="inline-flex h-9 items-center rounded-full border border-hairline px-3 text-[12px] text-ink-300 transition hover:border-red-400/50 hover:text-red-300"
+              className="inline-flex h-9 items-center rounded-full border border-hairline px-3 text-[0.75rem] text-ink-300 transition hover:border-red-400/50 hover:text-red-300"
             >
               サインアウト
             </button>
@@ -860,7 +860,7 @@ function SettingsContent(): JSX.Element {
             <button
               type="button"
               onClick={() => void handleReauthorize()}
-              className="inline-flex h-9 items-center rounded-full border border-accent/40 bg-accent/10 px-3 text-[12px] font-medium text-accent-soft transition hover:bg-accent/20"
+              className="inline-flex h-9 items-center rounded-full border border-accent/40 bg-accent/10 px-3 text-[0.75rem] font-medium text-accent-soft transition hover:bg-accent/20"
             >
               再認可
             </button>
@@ -873,18 +873,18 @@ function SettingsContent(): JSX.Element {
         {folderId ? (
           <div className="flex items-center justify-between gap-2 rounded-2xl border border-hairline bg-ink-800/30 px-4 py-3">
             <div className="flex min-w-0 flex-col">
-              <span className="text-[11px] uppercase tracking-[0.14em] text-ink-400">
+              <span className="text-[0.6875rem] uppercase tracking-[0.14em] text-ink-400">
                 MAIN FOLDER
               </span>
-              <span className="truncate text-[14px] font-medium text-ink-100">
+              <span className="truncate text-[0.875rem] font-medium text-ink-100">
                 {mainFolderName ? `📁 ${mainFolderName}` : "📁 (名前を取得中…)"}
               </span>
-              <span className="truncate text-[10px] text-ink-500">{folderId}</span>
+              <span className="truncate text-[0.625rem] text-ink-500">{folderId}</span>
             </div>
             <button
               type="button"
               onClick={() => setMainFolderShareOpen(true)}
-              className="inline-flex h-8 shrink-0 items-center rounded-full border border-accent/40 bg-accent/10 px-3 text-[12px] font-medium text-accent-soft hover:bg-accent/20"
+              className="inline-flex h-8 shrink-0 items-center rounded-full border border-accent/40 bg-accent/10 px-3 text-[0.75rem] font-medium text-accent-soft hover:bg-accent/20"
             >
               共有
             </button>
@@ -901,19 +901,19 @@ function SettingsContent(): JSX.Element {
           mainFolderLabel={mainFolderName}
         />
         <div className="flex flex-col gap-2 py-4">
-          <p className="text-[11px] text-ink-400">
+          <p className="text-[0.6875rem] text-ink-400">
             このアプリで記録した未振り分けファイルを整理します (アプリ外でアップロードしたファイルは対象外)
           </p>
           <button
             type="button"
             onClick={() => void handleBackfillUnrouted()}
             disabled={backfillBusy || !folderId || !driveConnected}
-            className="inline-flex h-10 w-full items-center justify-center rounded-full border border-accent/40 bg-accent/10 px-4 text-[12px] font-medium text-accent-soft transition hover:bg-accent/20 disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex h-10 w-full items-center justify-center rounded-full border border-accent/40 bg-accent/10 px-4 text-[0.75rem] font-medium text-accent-soft transition hover:bg-accent/20 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {backfillBusy ? "整理中…" : "未振り分けを一括整理"}
           </button>
           {backfillProgress ? (
-            <p className="text-[11px] text-ink-400" aria-live="polite">
+            <p className="text-[0.6875rem] text-ink-400" aria-live="polite">
               {backfillProgress.done}/{backfillProgress.total} 件
               {" / "}
               成功 {backfillProgress.success}、スキップ {backfillProgress.skipped}、失敗 {backfillProgress.failed}
@@ -992,19 +992,19 @@ function SettingsContent(): JSX.Element {
           type="button"
           onClick={() => setIosGuideOpen((v) => !v)}
           aria-expanded={iosGuideOpen}
-          className="flex w-full items-center justify-between gap-2 rounded-2xl border border-hairline bg-ink-800/30 px-4 py-3 text-left text-[13px] text-ink-200 hover:bg-ink-800/50"
+          className="flex w-full items-center justify-between gap-2 rounded-2xl border border-hairline bg-ink-800/30 px-4 py-3 text-left text-[0.8125rem] text-ink-200 hover:bg-ink-800/50"
         >
           <span>📱 アプリ風に使うための追加手順</span>
-          <span className="text-[11px] text-ink-400">{iosGuideOpen ? "閉じる" : "開く"}</span>
+          <span className="text-[0.6875rem] text-ink-400">{iosGuideOpen ? "閉じる" : "開く"}</span>
         </button>
         {iosGuideOpen ? (
-          <div className="space-y-4 rounded-2xl border border-hairline bg-ink-950/40 px-4 py-4 text-[12px] leading-relaxed text-ink-300">
+          <div className="space-y-4 rounded-2xl border border-hairline bg-ink-950/40 px-4 py-4 text-[0.75rem] leading-relaxed text-ink-300">
             {/* Tab switcher */}
             <div className="inline-flex rounded-full border border-hairline bg-ink-900/60 p-0.5">
               <button
                 type="button"
                 onClick={() => setInstallPlatform("ios")}
-                className={`rounded-full px-3 py-1 text-[12px] font-medium transition ${
+                className={`rounded-full px-3 py-1 text-[0.75rem] font-medium transition ${
                   installPlatform === "ios"
                     ? "bg-ink-700 text-ink-50"
                     : "text-ink-400 hover:text-ink-200"
@@ -1015,7 +1015,7 @@ function SettingsContent(): JSX.Element {
               <button
                 type="button"
                 onClick={() => setInstallPlatform("android")}
-                className={`rounded-full px-3 py-1 text-[12px] font-medium transition ${
+                className={`rounded-full px-3 py-1 text-[0.75rem] font-medium transition ${
                   installPlatform === "android"
                     ? "bg-ink-700 text-ink-50"
                     : "text-ink-400 hover:text-ink-200"
@@ -1036,7 +1036,7 @@ function SettingsContent(): JSX.Element {
                   </li>
                   <li>
                     アドレスバーに{" "}
-                    <code className="rounded bg-ink-800 px-1.5 py-0.5 text-[11px] text-ink-100">
+                    <code className="rounded bg-ink-800 px-1.5 py-0.5 text-[0.6875rem] text-ink-100">
                       capture.cursorvers.jp
                     </code>{" "}
                     を入力
@@ -1055,7 +1055,7 @@ function SettingsContent(): JSX.Element {
                     ホーム画面のアイコンから起動すれば、ブラウザ UI 無しのフルスクリーンで使えます
                   </li>
                 </ol>
-                <p className="rounded-lg border border-hairline/60 bg-ink-900/40 px-3 py-2 text-[11px] text-ink-400">
+                <p className="rounded-lg border border-hairline/60 bg-ink-900/40 px-3 py-2 text-[0.6875rem] text-ink-400">
                   ⚠️ ホーム画面 PWA は Safari と Cookie が別領域です。初回起動時にもう一度 Google サインインが必要になります (iOS の仕様)。
                 </p>
               </div>
@@ -1067,7 +1067,7 @@ function SettingsContent(): JSX.Element {
                 <ol className="list-decimal space-y-2 pl-5">
                   <li>
                     <strong>Chrome</strong> で{" "}
-                    <code className="rounded bg-ink-800 px-1.5 py-0.5 text-[11px] text-ink-100">
+                    <code className="rounded bg-ink-800 px-1.5 py-0.5 text-[0.6875rem] text-ink-100">
                       capture.cursorvers.jp
                     </code>{" "}
                     を開く
@@ -1086,7 +1086,7 @@ function SettingsContent(): JSX.Element {
                     ホーム画面のアイコンから起動。ほぼネイティブアプリの感覚で使えます
                   </li>
                 </ol>
-                <p className="rounded-lg border border-hairline/60 bg-ink-900/40 px-3 py-2 text-[11px] text-ink-400">
+                <p className="rounded-lg border border-hairline/60 bg-ink-900/40 px-3 py-2 text-[0.6875rem] text-ink-400">
                   ✨ Android では Chrome タブと PWA のサインインが共有されるため、再ログインは不要です。
                 </p>
               </div>
@@ -1115,7 +1115,7 @@ function SettingsContent(): JSX.Element {
           }
         />
         {shares.length > 0 ? (
-          <div className="max-h-48 overflow-auto py-3 text-[12px]">
+          <div className="max-h-48 overflow-auto py-3 text-[0.75rem]">
             {shares.map((share) => (
               <div
                 key={share.id}
@@ -1132,7 +1132,7 @@ function SettingsContent(): JSX.Element {
                       share.permissionId,
                     )
                   }
-                  className="shrink-0 text-[12px] text-red-300 transition hover:text-red-200"
+                  className="shrink-0 text-[0.75rem] text-red-300 transition hover:text-red-200"
                 >
                   取消
                 </button>
@@ -1147,7 +1147,7 @@ function SettingsContent(): JSX.Element {
             <button
               type="button"
               onClick={() => void handleClearAllData()}
-              className="inline-flex h-9 items-center rounded-full border border-hairline px-3 text-[12px] text-ink-300 transition hover:border-red-400/50 hover:text-red-300"
+              className="inline-flex h-9 items-center rounded-full border border-hairline px-3 text-[0.75rem] text-ink-300 transition hover:border-red-400/50 hover:text-red-300"
             >
               消去
             </button>
@@ -1157,7 +1157,7 @@ function SettingsContent(): JSX.Element {
 
       {/* Footer nav */}
       <nav className="flex flex-col items-center gap-2 pt-2">
-        <div className="flex items-center gap-4 text-[12.5px]">
+        <div className="flex items-center gap-4 text-[0.78125rem]">
           <Link
             href="/insights"
             className="text-accent-soft underline-offset-2 hover:underline"
@@ -1174,7 +1174,7 @@ function SettingsContent(): JSX.Element {
         </div>
         <Link
           href="/"
-          className="mt-3 text-[12px] text-ink-400 transition hover:text-ink-200"
+          className="mt-3 text-[0.75rem] text-ink-400 transition hover:text-ink-200"
         >
           ← ホーム
         </Link>

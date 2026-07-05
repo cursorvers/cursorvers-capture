@@ -77,7 +77,7 @@ export function Header() {
         {isHome ? (
           <Link
             href="/"
-            className="group inline-flex items-center gap-2 text-[15px] font-semibold tracking-tightest text-ink-50 transition hover:text-white"
+            className="group inline-flex items-center gap-2 text-[0.9375rem] font-semibold tracking-tightest text-ink-50 transition hover:text-white"
           >
             <BrandMark />
             <span>Cursorvers</span>
@@ -88,7 +88,7 @@ export function Header() {
           <Link
             href="/"
             aria-label="ホームへ戻る"
-            className="inline-flex h-10 items-center gap-1.5 rounded-full border border-hairline bg-ink-900/50 pl-2.5 pr-3.5 text-[13px] font-medium text-ink-200 transition active:scale-[0.97] hover:border-white/20 hover:bg-ink-900 hover:text-white"
+            className="inline-flex h-10 items-center gap-1.5 rounded-full border border-hairline bg-ink-900/50 pl-2.5 pr-3.5 text-[0.8125rem] font-medium text-ink-200 transition active:scale-[0.97] hover:border-white/20 hover:bg-ink-900 hover:text-white"
           >
             <BackArrow />
             <span>ホーム</span>
@@ -98,7 +98,7 @@ export function Header() {
         <Link
           href="/history"
           aria-label="履歴"
-          className="inline-flex h-10 items-center gap-1 rounded-full border border-hairline bg-ink-900/50 px-3 text-[12px] font-medium text-ink-200 transition active:scale-[0.97] hover:border-white/20 hover:bg-ink-900 hover:text-white"
+          className="inline-flex h-10 items-center gap-1 rounded-full border border-hairline bg-ink-900/50 px-3 text-[0.75rem] font-medium text-ink-200 transition active:scale-[0.97] hover:border-white/20 hover:bg-ink-900 hover:text-white"
         >
           履歴
         </Link>

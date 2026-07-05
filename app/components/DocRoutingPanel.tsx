@@ -95,7 +95,7 @@ export function DocRoutingPanel({ mainFolderId, mainFolderLabel }: Props): JSX.E
 
   return (
     <div className="space-y-2">
-      <p className="text-[11px] text-ink-400">
+      <p className="text-[0.6875rem] text-ink-400">
         AI が判別した種類に応じて自動的にサブフォルダへ振り分けます。未設定なら main フォルダ
         {mainFolderLabel ? `「${mainFolderLabel}」` : ""}に残ります。
       </p>
@@ -111,12 +111,12 @@ export function DocRoutingPanel({ mainFolderId, mainFolderLabel }: Props): JSX.E
                 i < ROW_ORDER.length - 1 ? "border-b border-hairline" : ""
               }`}
             >
-              <span className="text-[18px]">{DOC_ICON[t]}</span>
+              <span className="text-[1.125rem]">{DOC_ICON[t]}</span>
               <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                <span className="text-[13px] font-medium text-ink-100">
+                <span className="text-[0.8125rem] font-medium text-ink-100">
                   {DOC_TYPE_LABEL[t]}
                 </span>
-                <span className="truncate text-[11px] text-ink-400">
+                <span className="truncate text-[0.6875rem] text-ink-400">
                   {id ? <>📁 {name ?? id}</> : "未設定 (main フォルダに残ります)"}
                 </span>
               </div>
@@ -125,14 +125,14 @@ export function DocRoutingPanel({ mainFolderId, mainFolderLabel }: Props): JSX.E
                   <button
                     type="button"
                     onClick={() => setShareTarget({ id, label: name ?? DOC_TYPE_LABEL[t] })}
-                    className="inline-flex h-8 items-center rounded-full border border-accent/40 bg-accent/10 px-2.5 text-[11px] font-medium text-accent-soft hover:bg-accent/20"
+                    className="inline-flex h-8 items-center rounded-full border border-accent/40 bg-accent/10 px-2.5 text-[0.6875rem] font-medium text-accent-soft hover:bg-accent/20"
                   >
                     共有
                   </button>
                   <button
                     type="button"
                     onClick={() => void handleClear(t)}
-                    className="inline-flex h-8 items-center rounded-full border border-hairline px-2.5 text-[11px] text-ink-300 hover:text-red-300"
+                    className="inline-flex h-8 items-center rounded-full border border-hairline px-2.5 text-[0.6875rem] text-ink-300 hover:text-red-300"
                   >
                     解除
                   </button>
@@ -142,7 +142,7 @@ export function DocRoutingPanel({ mainFolderId, mainFolderLabel }: Props): JSX.E
                   type="button"
                   onClick={() => void handleCreate(t)}
                   disabled={isBusy || !mainFolderId}
-                  className="inline-flex h-8 items-center rounded-full border border-accent/40 bg-accent/10 px-2.5 text-[11px] font-medium text-accent-soft transition hover:bg-accent/20 disabled:opacity-50"
+                  className="inline-flex h-8 items-center rounded-full border border-accent/40 bg-accent/10 px-2.5 text-[0.6875rem] font-medium text-accent-soft transition hover:bg-accent/20 disabled:opacity-50"
                 >
                   {isBusy ? "作成中…" : `📁 ${DOC_TYPE_LABEL[t]} を作成`}
                 </button>
@@ -152,7 +152,7 @@ export function DocRoutingPanel({ mainFolderId, mainFolderLabel }: Props): JSX.E
         })}
       </div>
       {error ? (
-        <p className="text-[11px] text-red-300/80">{error}</p>
+        <p className="text-[0.6875rem] text-red-300/80">{error}</p>
       ) : null}
       <FolderShareSheet
         open={shareTarget !== null}

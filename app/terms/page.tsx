@@ -2,14 +2,14 @@ export default function TermsPage() {
   return (
     <article className="mx-auto max-w-2xl px-5 py-14 text-ink-200">
       <header className="mb-10 flex flex-col gap-3">
-        <span className="text-[10px] uppercase tracking-[0.2em] text-ink-400">
+        <span className="text-[0.625rem] uppercase tracking-[0.2em] text-ink-400">
           Cursorvers Capture
         </span>
         <h1 className="font-display text-4xl font-semibold tracking-tightest text-ink-50">
           利用規約
         </h1>
       </header>
-      <div className="space-y-5 text-[14px] leading-relaxed">
+      <div className="space-y-5 text-[0.875rem] leading-relaxed">
         <p>
           本規約は、Cursorvers Inc.（以下「当社」）が提供する「Cursorvers
           Capture」（以下「本アプリ」）の利用条件を定めます。本アプリは

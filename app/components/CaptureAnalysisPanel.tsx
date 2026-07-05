@@ -29,7 +29,7 @@ function CodexAvatar(): JSX.Element {
     <span className="relative inline-flex h-9 w-9 shrink-0 items-center justify-center">
       <span className="absolute inset-0 rounded-full bg-accent/30 blur-md" />
       <span className="absolute inset-0 rounded-full border border-accent/40 bg-gradient-to-br from-accent/40 to-accent/10" />
-      <span className="relative text-[11px] font-semibold tracking-tight text-ink-50">
+      <span className="relative text-[0.6875rem] font-semibold tracking-tight text-ink-50">
         cdx
       </span>
     </span>
@@ -139,15 +139,15 @@ export function CaptureAnalysisPanel({
         <div className="flex-1 rounded-2xl rounded-tl-md border border-hairline bg-ink-800/50 px-3.5 py-3">
           {/* 部分成功: Drive 保存は完了している */}
           {driveUrl ? (
-            <p className="mb-2 text-[12px] text-emerald-300/90">
+            <p className="mb-2 text-[0.75rem] text-emerald-300/90">
               ✅ Drive への保存は完了しています
             </p>
           ) : null}
-          <p className="text-[13px] text-ink-100">
+          <p className="text-[0.8125rem] text-ink-100">
             ⚠️ AI による整理ができませんでした
           </p>
           {error ? (
-            <p className="mt-1.5 text-[11.5px] leading-relaxed text-ink-400">
+            <p className="mt-1.5 text-[0.71875rem] leading-relaxed text-ink-400">
               {error.length > 160 ? `${error.slice(0, 160)}…` : error}
             </p>
           ) : null}
@@ -155,7 +155,7 @@ export function CaptureAnalysisPanel({
             {error?.includes("サインインが切れて") ? (
               <a
                 href="/settings"
-                className="inline-flex h-8 items-center justify-center rounded-full border border-accent/40 bg-accent/10 px-3 text-[12px] font-medium text-accent-soft transition hover:bg-accent/20"
+                className="inline-flex h-8 items-center justify-center rounded-full border border-accent/40 bg-accent/10 px-3 text-[0.75rem] font-medium text-accent-soft transition hover:bg-accent/20"
               >
                 🔐 設定 → 再認可
               </a>
@@ -164,7 +164,7 @@ export function CaptureAnalysisPanel({
                 type="button"
                 onClick={onRetry}
                 disabled={retrying}
-                className="inline-flex h-8 items-center justify-center rounded-full border border-accent/40 bg-accent/10 px-3 text-[12px] font-medium text-accent-soft transition hover:bg-accent/20 disabled:opacity-50"
+                className="inline-flex h-8 items-center justify-center rounded-full border border-accent/40 bg-accent/10 px-3 text-[0.75rem] font-medium text-accent-soft transition hover:bg-accent/20 disabled:opacity-50"
               >
                 {retrying ? "再試行中…" : "🔁 もう一度 AI で整理する"}
               </button>
@@ -174,13 +174,13 @@ export function CaptureAnalysisPanel({
                 href={driveUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex h-8 items-center justify-center rounded-full border border-hairline px-3 text-[12px] text-ink-300 transition hover:text-ink-100"
+                className="inline-flex h-8 items-center justify-center rounded-full border border-hairline px-3 text-[0.75rem] text-ink-300 transition hover:text-ink-100"
               >
                 Drive で開く ↗
               </a>
             ) : null}
           </div>
-          <p className="mt-2 text-[11px] text-ink-500">
+          <p className="mt-2 text-[0.6875rem] text-ink-500">
             AI 整理は後からでも実行できます。撮影した画像は Drive 上で安全に保管されています。
           </p>
         </div>
@@ -215,7 +215,7 @@ export function CaptureAnalysisPanel({
       <CodexAvatar />
       <div className="flex-1 space-y-2">
         <div className="rounded-2xl rounded-tl-md border border-hairline bg-gradient-to-br from-ink-800/70 to-ink-900/40 px-4 py-3 shadow-card">
-          <p className="whitespace-pre-line text-[14.5px] leading-relaxed text-ink-50">
+          <p className="whitespace-pre-line text-[0.90625rem] leading-relaxed text-ink-50">
             {typed}
             {showCursor ? (
               <span className="ml-0.5 inline-block h-[1.05em] w-[2px] -translate-y-0.5 animate-pulse bg-accent align-middle" />
@@ -284,7 +284,7 @@ export function CaptureAnalysisPanel({
             }
           />
           {analysis.suggested_folder ? (
-            <span className="inline-flex items-center gap-1 rounded-full border border-hairline bg-ink-900/60 px-2 py-0.5 text-[11px] text-ink-300">
+            <span className="inline-flex items-center gap-1 rounded-full border border-hairline bg-ink-900/60 px-2 py-0.5 text-[0.6875rem] text-ink-300">
               📁 {analysis.suggested_folder}
             </span>
           ) : null}
@@ -294,14 +294,14 @@ export function CaptureAnalysisPanel({
         {analysis.suggested_filename ? (
           <div className="rounded-xl border border-hairline bg-ink-800/30 px-3 py-2.5">
             <div className="flex items-center justify-between gap-2">
-              <span className="text-[10px] uppercase tracking-[0.14em] text-ink-400">
+              <span className="text-[0.625rem] uppercase tracking-[0.14em] text-ink-400">
                 ファイル名候補
               </span>
               {!editing ? (
                 <button
                   type="button"
                   onClick={() => setEditing(true)}
-                  className="text-[11px] font-medium text-accent-soft hover:text-accent"
+                  className="text-[0.6875rem] font-medium text-accent-soft hover:text-accent"
                 >
                   編集
                 </button>
@@ -313,7 +313,7 @@ export function CaptureAnalysisPanel({
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="flex-1 rounded-lg border border-hairline bg-ink-900/70 px-2.5 py-1.5 text-[13px] text-ink-50 focus:border-accent/60 focus:outline-none"
+                  className="flex-1 rounded-lg border border-hairline bg-ink-900/70 px-2.5 py-1.5 text-[0.8125rem] text-ink-50 focus:border-accent/60 focus:outline-none"
                   autoFocus
                   enterKeyHint="done"
                   onKeyDown={(e) => {
@@ -324,7 +324,7 @@ export function CaptureAnalysisPanel({
                   type="button"
                   disabled={renaming || !name.trim()}
                   onClick={() => void doRename()}
-                  className="inline-flex h-8 items-center rounded-lg bg-accent/15 px-3 text-[12px] font-medium text-accent-soft disabled:opacity-50"
+                  className="inline-flex h-8 items-center rounded-lg bg-accent/15 px-3 text-[0.75rem] font-medium text-accent-soft disabled:opacity-50"
                 >
                   {renaming ? "適用中…" : "保存"}
                 </button>
@@ -336,19 +336,19 @@ export function CaptureAnalysisPanel({
                 disabled={renaming || !driveFileId}
                 className="mt-1 flex w-full items-center justify-between gap-2 text-left disabled:opacity-50"
               >
-                <span className="truncate text-[13px] font-mono text-ink-100">
+                <span className="truncate text-[0.8125rem] font-mono text-ink-100">
                   {name}
                 </span>
-                <span className="shrink-0 text-[11px] text-accent-soft">
+                <span className="shrink-0 text-[0.6875rem] text-accent-soft">
                   {renaming ? "適用中…" : renamed ? "✓ 適用済" : "タップで Drive に適用"}
                 </span>
               </button>
             )}
             {renamed && !editing ? (
-              <p className="mt-1 text-[10px] text-ink-400">→ {renamed}</p>
+              <p className="mt-1 text-[0.625rem] text-ink-400">→ {renamed}</p>
             ) : null}
             {renameErr ? (
-              <p className="mt-1 text-[11px] text-red-300/80">{renameErr}</p>
+              <p className="mt-1 text-[0.6875rem] text-red-300/80">{renameErr}</p>
             ) : null}
           </div>
         ) : null}
@@ -364,7 +364,7 @@ export function CaptureAnalysisPanel({
             href={driveUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex text-[11px] font-medium text-ink-300 underline-offset-4 hover:text-accent-soft hover:underline"
+            className="inline-flex text-[0.6875rem] font-medium text-ink-300 underline-offset-4 hover:text-accent-soft hover:underline"
           >
             Drive で開く ↗
           </a>

@@ -2,14 +2,14 @@ export default function PrivacyPage() {
   return (
     <article className="mx-auto max-w-2xl px-5 py-14 text-ink-200">
       <header className="mb-10 flex flex-col gap-3">
-        <span className="text-[10px] uppercase tracking-[0.2em] text-ink-400">
+        <span className="text-[0.625rem] uppercase tracking-[0.2em] text-ink-400">
           Cursorvers Capture
         </span>
         <h1 className="font-display text-4xl font-semibold tracking-tightest text-ink-50">
           プライバシーポリシー
         </h1>
       </header>
-      <div className="space-y-5 text-[14px] leading-relaxed">
+      <div className="space-y-5 text-[0.875rem] leading-relaxed">
         <p>
           本ポリシーは、Cursorvers Inc.（以下「当社」）が提供する実験的 Web
           アプリ「Cursorvers Capture」（以下「本アプリ」）における個人情報等

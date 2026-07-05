@@ -195,10 +195,10 @@ export function FolderShareSheet({
           ✕
         </button>
 
-        <p className="text-[10px] uppercase tracking-[0.18em] text-ink-400">
+        <p className="text-[0.625rem] uppercase tracking-[0.18em] text-ink-400">
           フォルダ共有
         </p>
-        <h2 className="mt-1 font-display text-[20px] font-semibold tracking-tightest text-ink-50">
+        <h2 className="mt-1 font-display text-[1.25rem] font-semibold tracking-tightest text-ink-50">
           📁 {folderLabel ?? "フォルダ"}
         </h2>
 
@@ -206,21 +206,21 @@ export function FolderShareSheet({
         <div className="mt-4 rounded-2xl border border-hairline bg-ink-800/30 p-4">
           <div className="flex items-center justify-between gap-2">
             <div>
-              <p className="text-[13px] font-medium text-ink-100">
+              <p className="text-[0.8125rem] font-medium text-ink-100">
                 リンクで共有
               </p>
-              <p className="text-[11px] text-ink-400">
+              <p className="text-[0.6875rem] text-ink-400">
                 URL を知っている人全員が閲覧できます
               </p>
             </div>
             {linkState.kind === "checking" ? (
-              <span className="text-[11px] text-ink-400">確認中…</span>
+              <span className="text-[0.6875rem] text-ink-400">確認中…</span>
             ) : linkState.kind === "off" ? (
               <button
                 type="button"
                 disabled={busy}
                 onClick={() => void handleEnableLink()}
-                className="inline-flex h-9 items-center rounded-full bg-accent/15 px-3 text-[12px] font-medium text-accent-soft transition hover:bg-accent/25 disabled:opacity-50"
+                className="inline-flex h-9 items-center rounded-full bg-accent/15 px-3 text-[0.75rem] font-medium text-accent-soft transition hover:bg-accent/25 disabled:opacity-50"
               >
                 {busy ? "…" : "ON"}
               </button>
@@ -229,7 +229,7 @@ export function FolderShareSheet({
                 type="button"
                 disabled={busy}
                 onClick={() => void handleDisableLink()}
-                className="inline-flex h-9 items-center rounded-full border border-hairline px-3 text-[12px] font-medium text-ink-300 transition hover:border-red-400/40 hover:text-red-300 disabled:opacity-50"
+                className="inline-flex h-9 items-center rounded-full border border-hairline px-3 text-[0.75rem] font-medium text-ink-300 transition hover:border-red-400/40 hover:text-red-300 disabled:opacity-50"
               >
                 OFF
               </button>
@@ -244,12 +244,12 @@ export function FolderShareSheet({
                   readOnly
                   value={linkState.url}
                   onFocus={(e) => e.currentTarget.select()}
-                  className="flex-1 rounded-lg border border-hairline bg-ink-900/70 px-2.5 py-1.5 text-[12px] text-ink-100 outline-none"
+                  className="flex-1 rounded-lg border border-hairline bg-ink-900/70 px-2.5 py-1.5 text-[0.75rem] text-ink-100 outline-none"
                 />
                 <button
                   type="button"
                   onClick={() => void handleCopyLink(linkState.url)}
-                  className="inline-flex h-8 shrink-0 items-center rounded-lg border border-hairline bg-ink-800 px-2.5 text-[12px] font-medium text-ink-100 hover:bg-ink-700"
+                  className="inline-flex h-8 shrink-0 items-center rounded-lg border border-hairline bg-ink-800 px-2.5 text-[0.75rem] font-medium text-ink-100 hover:bg-ink-700"
                 >
                   {copied ? "✓ コピー" : "コピー"}
                 </button>
@@ -257,7 +257,7 @@ export function FolderShareSheet({
               <button
                 type="button"
                 onClick={() => void handleSystemShare(linkState.url)}
-                className="inline-flex h-9 w-full items-center justify-center rounded-full border border-accent/40 bg-accent/10 px-3 text-[12px] font-medium text-accent-soft hover:bg-accent/20"
+                className="inline-flex h-9 w-full items-center justify-center rounded-full border border-accent/40 bg-accent/10 px-3 text-[0.75rem] font-medium text-accent-soft hover:bg-accent/20"
               >
                 📤 LINE / メール等で送る
               </button>
@@ -267,10 +267,10 @@ export function FolderShareSheet({
 
         {/* Email invite block */}
         <div className="mt-3 rounded-2xl border border-hairline bg-ink-800/30 p-4">
-          <p className="text-[13px] font-medium text-ink-100">
+          <p className="text-[0.8125rem] font-medium text-ink-100">
             メールで招待
           </p>
-          <p className="text-[11px] text-ink-400">
+          <p className="text-[0.6875rem] text-ink-400">
             特定のメールアドレスに権限を付与します
           </p>
           <div className="mt-3 flex flex-col gap-1.5">
@@ -285,13 +285,13 @@ export function FolderShareSheet({
               onKeyDown={(e) => {
                 if (e.key === "Enter") void handleInvite();
               }}
-              className="rounded-lg border border-hairline bg-ink-900/70 px-3 py-2 text-[13px] text-ink-50 placeholder:text-ink-500 focus:border-accent/60 focus:outline-none"
+              className="rounded-lg border border-hairline bg-ink-900/70 px-3 py-2 text-[0.8125rem] text-ink-50 placeholder:text-ink-500 focus:border-accent/60 focus:outline-none"
             />
             <div className="flex items-center gap-1.5">
               <select
                 value={role}
                 onChange={(e) => setRole(e.target.value as typeof role)}
-                className="rounded-lg border border-hairline bg-ink-900/70 px-2 py-2 text-[12px] text-ink-100"
+                className="rounded-lg border border-hairline bg-ink-900/70 px-2 py-2 text-[0.75rem] text-ink-100"
               >
                 <option value="reader">閲覧者</option>
                 <option value="commenter">コメント可</option>
@@ -300,7 +300,7 @@ export function FolderShareSheet({
                 type="button"
                 disabled={busy || !email.trim()}
                 onClick={() => void handleInvite()}
-                className="inline-flex h-9 flex-1 items-center justify-center rounded-lg bg-accent/15 text-[12px] font-medium text-accent-soft hover:bg-accent/25 disabled:opacity-50"
+                className="inline-flex h-9 flex-1 items-center justify-center rounded-lg bg-accent/15 text-[0.75rem] font-medium text-accent-soft hover:bg-accent/25 disabled:opacity-50"
               >
                 {busy ? "送信中…" : "招待"}
               </button>
@@ -311,17 +311,17 @@ export function FolderShareSheet({
         {/* Existing grants */}
         {userGrants.length > 0 ? (
           <div className="mt-3 rounded-2xl border border-hairline bg-ink-800/30">
-            <p className="border-b border-hairline px-4 py-2.5 text-[10px] uppercase tracking-[0.14em] text-ink-400">
+            <p className="border-b border-hairline px-4 py-2.5 text-[0.625rem] uppercase tracking-[0.14em] text-ink-400">
               共有中 ({userGrants.length})
             </p>
             <ul>
               {userGrants.map((p) => (
                 <li key={p.id} className="flex items-center gap-2 px-4 py-2.5">
                   <div className="flex min-w-0 flex-1 flex-col">
-                    <span className="truncate text-[12px] text-ink-100">
+                    <span className="truncate text-[0.75rem] text-ink-100">
                       {p.emailAddress ?? p.displayName ?? p.id}
                     </span>
-                    <span className="text-[10px] text-ink-400">
+                    <span className="text-[0.625rem] text-ink-400">
                       {p.role === "reader" ? "閲覧者" : p.role === "commenter" ? "コメント可" : p.role}
                     </span>
                   </div>
@@ -329,7 +329,7 @@ export function FolderShareSheet({
                     type="button"
                     onClick={() => void handleRevoke(p.id)}
                     disabled={busy}
-                    className="inline-flex h-7 items-center rounded-full border border-hairline px-2 text-[10px] text-ink-300 hover:border-red-400/40 hover:text-red-300 disabled:opacity-50"
+                    className="inline-flex h-7 items-center rounded-full border border-hairline px-2 text-[0.625rem] text-ink-300 hover:border-red-400/40 hover:text-red-300 disabled:opacity-50"
                   >
                     解除
                   </button>
@@ -340,7 +340,7 @@ export function FolderShareSheet({
         ) : null}
 
         {error ? (
-          <p className="mt-3 text-[11px] text-red-300/80">{error}</p>
+          <p className="mt-3 text-[0.6875rem] text-red-300/80">{error}</p>
         ) : null}
       </div>
     </div>

@@ -14,7 +14,7 @@ export function TrialExpiryBanner(): JSX.Element | null {
     : "";
 
   return (
-    <div className="border-b border-amber-400/30 bg-amber-400/10 px-4 py-2.5 text-center text-[12px] text-amber-200">
+    <div className="border-b border-amber-400/30 bg-amber-400/10 px-4 py-2.5 text-center text-[0.75rem] text-amber-200">
       <span>
         トライアル期間が{expiredLabel ? `（${expiredLabel}）` : ""}終了しました。
       </span>{" "}

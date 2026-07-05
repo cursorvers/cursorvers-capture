@@ -55,7 +55,7 @@ export function EditableChip({
 
   if (editing) {
     return (
-      <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] ${toneClass}`}>
+      <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[0.6875rem] ${toneClass}`}>
         <span>{label}</span>
         <input
           ref={inputRef}
@@ -70,7 +70,7 @@ export function EditableChip({
           onBlur={() => void commit()}
           aria-label={ariaLabel}
           inputMode={inputType === "number" ? "decimal" : undefined}
-          className="w-24 bg-transparent text-[11px] text-current outline-none"
+          className="w-24 bg-transparent text-[0.6875rem] text-current outline-none"
           disabled={saving}
         />
       </span>
@@ -82,7 +82,7 @@ export function EditableChip({
       type="button"
       onClick={() => setEditing(true)}
       aria-label={`${ariaLabel} を編集`}
-      className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] transition hover:brightness-125 ${toneClass}`}
+      className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[0.6875rem] transition hover:brightness-125 ${toneClass}`}
     >
       <span>{label}</span>
       <span>{value || (placeholder ?? "—")}</span>

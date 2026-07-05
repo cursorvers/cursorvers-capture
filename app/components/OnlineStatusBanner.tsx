@@ -14,7 +14,7 @@ export function OnlineStatusBanner(): JSX.Element | null {
       role="status"
       aria-live="polite"
       data-testid="online-status-banner-offline"
-      className="border-b border-amber-500/30 bg-amber-500/10 px-5 py-2.5 text-center text-[13px] font-medium text-amber-100 backdrop-blur-md"
+      className="border-b border-amber-500/30 bg-amber-500/10 px-5 py-2.5 text-center text-[0.8125rem] font-medium text-amber-100 backdrop-blur-md"
     >
       <span className="mr-1.5" aria-hidden>
         ●

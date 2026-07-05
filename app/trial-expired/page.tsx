@@ -30,7 +30,7 @@ export default function TrialExpiredPage(): JSX.Element {
           <li>履歴の検索と再アップロード</li>
           <li>OCR + 構造化抽出</li>
         </ul>
-        <p className="border-t border-hairline pt-3 text-[12px] text-ink-400">
+        <p className="border-t border-hairline pt-3 text-[0.75rem] text-ink-400">
           ※ Cursorvers note 有料会員 (Cursorvers Pro) とは独立した課金です。
           note 会員でも Capture のご利用には別途お申し込みが必要です。
         </p>
@@ -44,7 +44,7 @@ export default function TrialExpiredPage(): JSX.Element {
         >
           Capture Standard へアップグレード (近日公開)
         </button>
-        <p className="text-[12px] text-ink-400">
+        <p className="text-[0.75rem] text-ink-400">
           料金とお申し込みは{" "}
           <a
             href="mailto:flux@cursorvers.com?subject=Cursorvers%20Capture%20Standard%20%E7%94%B3%E8%BE%BC"
@@ -58,7 +58,7 @@ export default function TrialExpiredPage(): JSX.Element {
 
       <Link
         href="/"
-        className="text-[12px] text-ink-400 underline decoration-dotted underline-offset-4 hover:text-ink-200"
+        className="text-[0.75rem] text-ink-400 underline decoration-dotted underline-offset-4 hover:text-ink-200"
       >
         ホームへ戻る
       </Link>

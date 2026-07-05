@@ -210,10 +210,10 @@ export default function HistoryPage(): JSX.Element {
     <div className="mx-auto flex max-w-3xl flex-col gap-4 px-5 pt-6 pb-12">
       <div className="flex items-end justify-between">
         <div>
-          <p className="text-[10px] uppercase tracking-[0.18em] text-ink-400">
+          <p className="text-[0.625rem] uppercase tracking-[0.18em] text-ink-400">
             HISTORY
           </p>
-          <h1 className="mt-1 font-display text-[24px] font-semibold tracking-tightest text-ink-50">
+          <h1 className="mt-1 font-display text-[1.5rem] font-semibold tracking-tightest text-ink-50">
             撮影履歴
           </h1>
         </div>
@@ -221,7 +221,7 @@ export default function HistoryPage(): JSX.Element {
           type="button"
           onClick={() => void loadAll()}
           disabled={loading || syncing}
-          className="inline-flex h-9 items-center gap-1.5 rounded-full border border-hairline bg-ink-800/60 px-3 text-[12px] font-medium text-ink-200 transition hover:border-white/20 hover:bg-ink-800 disabled:opacity-50"
+          className="inline-flex h-9 items-center gap-1.5 rounded-full border border-hairline bg-ink-800/60 px-3 text-[0.75rem] font-medium text-ink-200 transition hover:border-white/20 hover:bg-ink-800 disabled:opacity-50"
         >
           {syncing ? "同期中…" : "更新"}
         </button>
@@ -229,24 +229,24 @@ export default function HistoryPage(): JSX.Element {
 
       {folderMissing ? (
         <div className="rounded-2xl border border-hairline bg-ink-800/40 p-4">
-          <p className="text-[13px] text-ink-200">
+          <p className="text-[0.8125rem] text-ink-200">
             まず保存先フォルダを設定してください。
           </p>
           <Link
             href="/settings"
-            className="mt-2 inline-flex h-9 items-center rounded-full border border-accent/40 bg-accent/10 px-3 text-[12px] font-medium text-accent-soft hover:bg-accent/20"
+            className="mt-2 inline-flex h-9 items-center rounded-full border border-accent/40 bg-accent/10 px-3 text-[0.75rem] font-medium text-accent-soft hover:bg-accent/20"
           >
             設定へ →
           </Link>
         </div>
       ) : signedOut ? (
         <div className="rounded-2xl border border-hairline bg-ink-800/40 p-4">
-          <p className="text-[13px] text-ink-200">
+          <p className="text-[0.8125rem] text-ink-200">
             Google にサインインしてください。
           </p>
           <Link
             href="/"
-            className="mt-2 inline-flex h-9 items-center rounded-full border border-accent/40 bg-accent/10 px-3 text-[12px] font-medium text-accent-soft hover:bg-accent/20"
+            className="mt-2 inline-flex h-9 items-center rounded-full border border-accent/40 bg-accent/10 px-3 text-[0.75rem] font-medium text-accent-soft hover:bg-accent/20"
           >
             ホームへ →
           </Link>
@@ -262,7 +262,7 @@ export default function HistoryPage(): JSX.Element {
           placeholder="🔎 店名・金額・日付・キーワード"
           enterKeyHint="search"
           autoComplete="off"
-          className="h-11 w-full rounded-full border border-hairline bg-ink-800/60 px-4 text-[14px] text-ink-50 placeholder:text-ink-500 focus:border-accent/60 focus:outline-none"
+          className="h-11 w-full rounded-full border border-hairline bg-ink-800/60 px-4 text-[0.875rem] text-ink-50 placeholder:text-ink-500 focus:border-accent/60 focus:outline-none"
         />
         <div className="flex flex-wrap gap-1.5">
           {DOC_FILTERS.map((f) => {
@@ -272,7 +272,7 @@ export default function HistoryPage(): JSX.Element {
                 key={f.type}
                 type="button"
                 onClick={() => toggleFilter(f.type)}
-                className={`inline-flex h-7 items-center gap-1 rounded-full border px-2.5 text-[11px] font-medium transition ${
+                className={`inline-flex h-7 items-center gap-1 rounded-full border px-2.5 text-[0.6875rem] font-medium transition ${
                   active
                     ? "border-accent/50 bg-accent/15 text-accent-soft"
                     : "border-hairline bg-ink-800/40 text-ink-300 hover:bg-ink-800/60"
@@ -287,7 +287,7 @@ export default function HistoryPage(): JSX.Element {
             <button
               type="button"
               onClick={() => setShowUnanalyzed((v) => !v)}
-              className={`inline-flex h-7 items-center gap-1 rounded-full border px-2.5 text-[11px] font-medium transition ${
+              className={`inline-flex h-7 items-center gap-1 rounded-full border px-2.5 text-[0.6875rem] font-medium transition ${
                 showUnanalyzed
                   ? "border-hairline bg-ink-800/40 text-ink-300 hover:bg-ink-800/60"
                   : "border-amber-400/40 bg-amber-400/10 text-amber-200"
@@ -305,24 +305,24 @@ export default function HistoryPage(): JSX.Element {
                 setActiveFilters(new Set());
                 setQuery("");
               }}
-              className="inline-flex h-7 items-center rounded-full border border-dashed border-hairline px-2.5 text-[11px] text-ink-400 hover:text-ink-200"
+              className="inline-flex h-7 items-center rounded-full border border-dashed border-hairline px-2.5 text-[0.6875rem] text-ink-400 hover:text-ink-200"
             >
               クリア
             </button>
           ) : null}
         </div>
         {query || activeFilters.size > 0 || !showUnanalyzed ? (
-          <p className="text-[10px] text-ink-500">
+          <p className="text-[0.625rem] text-ink-500">
             {filtered.length} / {entries.length} 件表示 (解析済 {analyzedCount}、未解析 {unanalyzedCount})
           </p>
         ) : null}
       </div>
 
       {error ? (
-        <div className="rounded-2xl border border-red-500/30 bg-red-500/5 p-4 text-[13px] text-red-200">
+        <div className="rounded-2xl border border-red-500/30 bg-red-500/5 p-4 text-[0.8125rem] text-red-200">
           {error}
           {error.toLowerCase().includes("403") || error.toLowerCase().includes("insufficient") ? (
-            <p className="mt-2 text-[11px] text-red-300/70">
+            <p className="mt-2 text-[0.6875rem] text-red-300/70">
               新しい権限 (drive.metadata.readonly) が必要です。設定 → 再認可 で許可してください。
             </p>
           ) : null}

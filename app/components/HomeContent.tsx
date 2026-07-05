@@ -91,10 +91,10 @@ function StatusPill({
         : "bg-ink-400";
   return (
     <div className="flex flex-col items-start gap-1 rounded-xl border border-hairline bg-ink-800/30 px-3 py-2.5">
-      <span className="text-[10px] uppercase tracking-[0.16em] text-ink-400">
+      <span className="text-[0.625rem] uppercase tracking-[0.16em] text-ink-400">
         {label}
       </span>
-      <span className="inline-flex items-center gap-1.5 text-[13px] font-medium text-ink-100">
+      <span className="inline-flex items-center gap-1.5 text-[0.8125rem] font-medium text-ink-100">
         <span aria-hidden className={`h-1.5 w-1.5 rounded-full ${dot}`} />
         {value}
       </span>
@@ -454,14 +454,14 @@ export default function HomeContent(): JSX.Element {
     <div className="mx-auto flex max-w-md flex-col gap-7 px-5 pb-16 pt-10 sm:pt-14">
       {/* Hero */}
       <section className="flex flex-col gap-3">
-        <span className="inline-flex w-fit items-center gap-1.5 rounded-full border border-hairline bg-white/[0.02] px-2.5 py-1 text-[10px] uppercase tracking-[0.18em] text-ink-300">
+        <span className="inline-flex w-fit items-center gap-1.5 rounded-full border border-hairline bg-white/[0.02] px-2.5 py-1 text-[0.625rem] uppercase tracking-[0.18em] text-ink-300">
           <span aria-hidden className="h-1 w-1 rounded-full bg-accent" />
           drive.file scope · 招待制
         </span>
-        <h1 className="font-display text-4xl font-semibold tracking-tightest text-ink-50 sm:text-[44px]">
+        <h1 className="font-display text-4xl font-semibold tracking-tightest text-ink-50 sm:text-[2.75rem]">
           Cursorvers Capture
         </h1>
-        <p className="max-w-sm text-[14px] leading-relaxed text-ink-300">
+        <p className="max-w-sm text-[0.875rem] leading-relaxed text-ink-300">
           撮影した画像を、サーバーを経由せず、あなたの Google Drive
           の指定フォルダへ直接保存します。
         </p>
@@ -491,7 +491,7 @@ export default function HomeContent(): JSX.Element {
 
       {/* Subtle collapsible disclosure */}
       <details className="group rounded-2xl border border-hairline bg-ink-900/40 backdrop-blur-sm transition-colors hover:border-white/15 open:border-white/15">
-        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-2.5 text-[11.5px] text-ink-400 transition-colors hover:text-ink-200 group-open:text-ink-200 [&::-webkit-details-marker]:hidden">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-2.5 text-[0.71875rem] text-ink-400 transition-colors hover:text-ink-200 group-open:text-ink-200 [&::-webkit-details-marker]:hidden">
           <span className="inline-flex items-center gap-2">
             <svg
               aria-hidden
@@ -518,7 +518,7 @@ export default function HomeContent(): JSX.Element {
             <path d="M6 4l4 4-4 4V4z" />
           </svg>
         </summary>
-        <div className="border-t border-hairline/60 px-4 py-3 text-[11px] leading-relaxed text-ink-400">
+        <div className="border-t border-hairline/60 px-4 py-3 text-[0.6875rem] leading-relaxed text-ink-400">
           <p>
             撮影した領収書・名刺・メモを Google Drive へ整理するための補助ツールです。
             電子帳簿保存法のスキャナ保存要件は満たさないため、紙の原本は別途保管してください。
@@ -551,7 +551,7 @@ export default function HomeContent(): JSX.Element {
           <button
             type="button"
             disabled
-            className="inline-flex h-14 w-full cursor-not-allowed items-center justify-center gap-2 rounded-2xl border border-hairline bg-ink-800/30 text-[15px] font-semibold text-ink-400"
+            className="inline-flex h-14 w-full cursor-not-allowed items-center justify-center gap-2 rounded-2xl border border-hairline bg-ink-800/30 text-[0.9375rem] font-semibold text-ink-400"
             aria-label="サインイン後にカメラを起動"
             data-testid="camera-button-disabled"
           >
@@ -561,7 +561,7 @@ export default function HomeContent(): JSX.Element {
         )}
         {statusMessage ? (
           <p
-            className="text-center text-[12px] text-ink-300"
+            className="text-center text-[0.75rem] text-ink-300"
             data-testid="capture-status"
           >
             {statusMessage}

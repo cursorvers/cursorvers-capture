@@ -38,8 +38,8 @@ export function HistoryGrid({ entries, onSelect }: Props): JSX.Element {
   if (entries.length === 0) {
     return (
       <div className="rounded-2xl border border-hairline bg-ink-800/30 px-5 py-12 text-center">
-        <p className="text-[14px] text-ink-300">まだ何も撮ってない</p>
-        <p className="mt-1 text-[12px] text-ink-400">ホームから 1 枚撮ってみよう</p>
+        <p className="text-[0.875rem] text-ink-300">まだ何も撮ってない</p>
+        <p className="mt-1 text-[0.75rem] text-ink-400">ホームから 1 枚撮ってみよう</p>
       </div>
     );
   }
@@ -68,24 +68,24 @@ export function HistoryGrid({ entries, onSelect }: Props): JSX.Element {
                     loading="lazy"
                   />
                 ) : (
-                  <div className="flex h-full items-center justify-center text-[10px] text-ink-500">
+                  <div className="flex h-full items-center justify-center text-[0.625rem] text-ink-500">
                     no preview
                   </div>
                 )}
-                <span className="absolute bottom-1 right-1 inline-flex h-5 w-5 items-center justify-center rounded-full bg-ink-900/80 text-[11px]">
+                <span className="absolute bottom-1 right-1 inline-flex h-5 w-5 items-center justify-center rounded-full bg-ink-900/80 text-[0.6875rem]">
                   {icon}
                 </span>
                 {!a ? (
-                  <span className="absolute left-1 top-1 inline-flex h-5 items-center rounded-full bg-ink-950/80 px-1.5 text-[9px] font-medium uppercase tracking-[0.12em] text-ink-300">
+                  <span className="absolute left-1 top-1 inline-flex h-5 items-center rounded-full bg-ink-950/80 px-1.5 text-[0.5625rem] font-medium uppercase tracking-[0.12em] text-ink-300">
                     未解析
                   </span>
                 ) : null}
               </div>
               <div className="flex min-w-0 flex-1 flex-col gap-1">
-                <p className="line-clamp-2 text-[13px] leading-snug text-ink-100">
+                <p className="line-clamp-2 text-[0.8125rem] leading-snug text-ink-100">
                   {a?.comment || e.name}
                 </p>
-                <div className="flex flex-wrap items-center gap-1 text-[10px] text-ink-400">
+                <div className="flex flex-wrap items-center gap-1 text-[0.625rem] text-ink-400">
                   <span>{relativeTime(e.createdTime)}</span>
                   {a?.extracted?.vendor ? (
                     <>
