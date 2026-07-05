@@ -58,6 +58,11 @@ async function withOneBackoffRetry<T>(fn: () => Promise<T>): Promise<T> {
   }
 }
 
+export function formatBatchFinalStatus(total: number, failures: number): string {
+  const succeeded = total - failures;
+  return `(${total}/${total}) 複数アップロード終了: 成功 ${succeeded}/${total}, 失敗 ${failures}`;
+}
+
 function StatusPill({
   label,
   value,
@@ -270,19 +275,25 @@ export default function HomeContent(): JSX.Element {
       setStatusMessage(`${progressLabel}「${filename}」を処理中…`);
 
       if (!folderId) {
+        if (batch) {
+          batchFailureCountRef.current += 1;
+        }
         setStatusMessage(
-          "アップロード先フォルダが未設定です。設定で指定してください。",
+          `${progressLabel}アップロード先フォルダが未設定です。設定で指定してください。`,
         );
+        if (batch && batch.index === batch.total) {
+          setStatusMessage(
+            formatBatchFinalStatus(batch.total, batchFailureCountRef.current),
+          );
+        }
         return;
       }
 
       try {
         setStatusMessage(`${progressLabel}Google Driveへアップロード中…`);
-        const { fileId } = await withOneBackoffRetry(() =>
-          uploadBlob(blob, filename, folderId, undefined, {
-            sessionId: uploadSessionId,
-          }),
-        );
+        const { fileId } = await uploadBlob(blob, filename, folderId, undefined, {
+          sessionId: uploadSessionId,
+        });
 
         setStatusMessage(`${progressLabel}AI 解析中…`);
         const driveUrl = `https://drive.google.com/file/d/${fileId}/view`;
@@ -340,10 +351,7 @@ export default function HomeContent(): JSX.Element {
       } finally {
         if (batch && batch.index === batch.total) {
           const failures = batchFailureCountRef.current;
-          const succeeded = batch.total - failures;
-          setStatusMessage(
-            `複数アップロード完了: 成功 ${succeeded}/${batch.total}, 失敗 ${failures}`,
-          );
+          setStatusMessage(formatBatchFinalStatus(batch.total, failures));
         }
       }
     },

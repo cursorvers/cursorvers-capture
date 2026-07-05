@@ -6,8 +6,8 @@ export default function manifest(): MetadataRoute.Manifest {
     short_name: "Cursorvers Capture",
     start_url: "/",
     display: "standalone",
-    background_color: "#0a1a4a",
-    theme_color: "#0a1a4a",
+    background_color: "#0b0d12",
+    theme_color: "#0b0d12",
     icons: [
       {
         src: "/icon-192.png",

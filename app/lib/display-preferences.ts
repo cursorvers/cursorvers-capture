@@ -5,7 +5,7 @@ export type TextSizePreference = "standard" | "large" | "xlarge";
 export const THEME_STORAGE_KEY = "cursorvers_theme";
 export const TEXT_SIZE_STORAGE_KEY = "cursorvers_text_size";
 
-const DARK_THEME_COLOR = "#0a1a4a";
+const DARK_THEME_COLOR = "#0b0d12";
 const LIGHT_THEME_COLOR = "#f6f7fb";
 
 const TEXT_SIZE_SCALE: Record<TextSizePreference, string> = {
@@ -104,4 +104,3 @@ export function setStoredTextSizePreference(
   }
   return applyTextSizePreference(preference);
 }
-

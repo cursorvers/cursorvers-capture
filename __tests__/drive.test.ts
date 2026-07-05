@@ -1,5 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { initResumableSession, uploadChunk, queryResume, uploadBlob } from '../app/lib/drive';
+import {
+  initResumableSession,
+  uploadBlob,
+  uploadChunk,
+  queryResume,
+  type DriveUploadError,
+} from '../app/lib/drive';
 import * as FetchWrapper from '../app/lib/fetch-wrapper';
 import * as Idb from '../app/lib/idb';
 
@@ -355,6 +361,65 @@ describe('drive.ts', () => {
     expect(onProgress).toHaveBeenCalledWith(totalSize, totalSize);
 
     expect(result.fileId).toBe(mockFileId);
+  });
+
+  it('uploadBlob re-initializes once for expired upload sessions and then surfaces repeated expiry', async () => {
+    const initialSessionUrl = 'https://upload.google.com/initial/session';
+    const reinitSessionUrl = 'https://upload.google.com/reinit/session';
+    const filename = 'repeated-410.jpg';
+    const folderId = 'folder123';
+    const blob = new Blob([new TextEncoder().encode('short content')]);
+
+    mockIdbGet.mockResolvedValueOnce(undefined);
+    mockDriveFetch
+      .mockResolvedValueOnce({
+        ok: true,
+        headers: new Headers({
+          Location: initialSessionUrl,
+        }),
+        status: 200,
+        statusText: 'OK',
+        json: () => Promise.resolve({}),
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 410,
+        statusText: 'Gone',
+        headers: new Headers(),
+        json: () => Promise.resolve({}),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        headers: new Headers({
+          Location: reinitSessionUrl,
+        }),
+        status: 200,
+        statusText: 'OK',
+        json: () => Promise.resolve({}),
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 410,
+        statusText: 'Gone',
+        headers: new Headers(),
+        json: () => Promise.resolve({}),
+      });
+
+    await expect(
+      uploadBlob(blob, filename, folderId, undefined, {
+        sessionId: filename,
+      }),
+    ).rejects.toMatchObject({
+      category: 'session_expired',
+      status: 410,
+    } satisfies Partial<DriveUploadError>);
+
+    expect(mockDriveFetch).toHaveBeenCalledTimes(4);
+    expect(mockDriveFetch).toHaveBeenNthCalledWith(
+      4,
+      reinitSessionUrl,
+      expect.any(Object),
+    );
   });
 
   it('uploadBlob uses unique upload session keys for same filename calls by default', async () => {

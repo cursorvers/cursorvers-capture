@@ -185,6 +185,7 @@ export async function uploadBlob(
 
 
   let shouldReinitialize = false;
+  let sessionExpiredRestarted = false;
 
 
 
@@ -288,8 +289,10 @@ export async function uploadBlob(
 
       if (
         error instanceof DriveUploadError &&
-        error.category === "session_expired"
+        error.category === "session_expired" &&
+        !sessionExpiredRestarted
       ) {
+        sessionExpiredRestarted = true;
 
         // Session expired or not found during chunk upload, re-initialize once
 

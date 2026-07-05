@@ -54,9 +54,17 @@ describe("display-preferences", () => {
     );
     expect(document.documentElement.dataset.theme).toBe("light");
     expect(document.documentElement.dataset.themePreference).toBe("light");
-    expect(document.querySelector('meta[name="theme-color"]')?.content).toBe(
-      "#f6f7fb",
-    );
+    expect(
+      document.querySelector<HTMLMetaElement>('meta[name="theme-color"]')
+        ?.content,
+    ).toBe("#f6f7fb");
+
+    applyThemePreference("dark");
+
+    expect(
+      document.querySelector<HTMLMetaElement>('meta[name="theme-color"]')
+        ?.content,
+    ).toBe("#0b0d12");
   });
 
   it("persists theme preference", () => {

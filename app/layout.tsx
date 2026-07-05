@@ -10,7 +10,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0a1a4a",
+  themeColor: "#0b0d12",
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
@@ -41,7 +41,7 @@ const preferenceScript = `
     var sizes = { standard: "100%", large: "112.5%", xlarge: "125%" };
     root.style.fontSize = sizes[textSize] || sizes.standard;
     root.dataset.textSize = sizes[textSize] ? textSize : "standard";
-    var themeColor = theme === "dark" ? "#0a1a4a" : "#f6f7fb";
+    var themeColor = theme === "dark" ? "#0b0d12" : "#f6f7fb";
     var meta = document.querySelector('meta[name="theme-color"]');
     if (!meta) {
       meta = document.createElement("meta");
