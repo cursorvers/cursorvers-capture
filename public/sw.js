@@ -1,4 +1,4 @@
-const SHELL = "app-shell-v5";
+const SHELL = "app-shell-v6";
 
 self.addEventListener("install", (ev) => {
   ev.waitUntil(self.skipWaiting());

@@ -19,19 +19,20 @@ const config: Config = {
           700: "#1f3370",
           600: "#2a4185",
         },
-        // Near-black neutral scale used as the base canvas (Linear/Vercel style).
+        // Semantic neutral scale. Values are supplied by theme classes on <html>
+        // so existing ink-* utilities work in both dark and light modes.
         ink: {
-          50: "#f5f6f8",
-          100: "#e6e8ee",
-          200: "#c5cad6",
-          300: "#9ba2b3",
-          400: "#737a8c",
-          500: "#525868",
-          600: "#363b48",
-          700: "#23262e",
-          800: "#14161b",
-          900: "#0b0d12",
-          950: "#06070a",
+          50: "rgb(var(--ink-50) / <alpha-value>)",
+          100: "rgb(var(--ink-100) / <alpha-value>)",
+          200: "rgb(var(--ink-200) / <alpha-value>)",
+          300: "rgb(var(--ink-300) / <alpha-value>)",
+          400: "rgb(var(--ink-400) / <alpha-value>)",
+          500: "rgb(var(--ink-500) / <alpha-value>)",
+          600: "rgb(var(--ink-600) / <alpha-value>)",
+          700: "rgb(var(--ink-700) / <alpha-value>)",
+          800: "rgb(var(--ink-800) / <alpha-value>)",
+          900: "rgb(var(--ink-900) / <alpha-value>)",
+          950: "rgb(var(--ink-950) / <alpha-value>)",
         },
         accent: {
           DEFAULT: "#f97316",

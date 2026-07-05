@@ -23,6 +23,16 @@ import {
   getAudioEnabled,
   setAudioEnabled as setAudioEnabledStore,
 } from "@/app/lib/audio-toggle";
+import {
+  applyThemePreference,
+  applyTextSizePreference,
+  getStoredTextSizePreference,
+  getStoredThemePreference,
+  setStoredTextSizePreference,
+  setStoredThemePreference,
+  type TextSizePreference,
+  type ThemePreference,
+} from "@/app/lib/display-preferences";
 import { getDeviceShort, getDeviceId } from "@/app/lib/device";
 import { revokeToken, getCurrentToken } from "@/app/lib/gis";
 import {
@@ -38,6 +48,16 @@ type FolderHistoryRecord = {
 };
 
 const FOLDER_HISTORY_MAX = 5;
+const THEME_OPTIONS: { value: ThemePreference; label: string }[] = [
+  { value: "dark", label: "ダーク" },
+  { value: "light", label: "ライト" },
+  { value: "system", label: "システム" },
+];
+const TEXT_SIZE_OPTIONS: { value: TextSizePreference; label: string }[] = [
+  { value: "standard", label: "標準" },
+  { value: "large", label: "大" },
+  { value: "xlarge", label: "特大" },
+];
 
 /**
  * Drive URL から folder ID を抽出する。受け入れ形式:
@@ -132,6 +152,44 @@ function Group({
   );
 }
 
+function SegmentedControl<T extends string>({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  label: string;
+  value: T;
+  options: { value: T; label: string }[];
+  onChange: (value: T) => void;
+}): JSX.Element {
+  return (
+    <div className="flex flex-col gap-2 py-4">
+      <p className="text-[13px] font-medium text-ink-100">{label}</p>
+      <div className="grid grid-cols-3 gap-1 rounded-full border border-hairline bg-ink-950/50 p-1">
+        {options.map((option) => {
+          const selected = option.value === value;
+          return (
+            <button
+              key={option.value}
+              type="button"
+              aria-pressed={selected}
+              onClick={() => onChange(option.value)}
+              className={`h-9 rounded-full px-2 text-[12px] font-medium transition ${
+                selected
+                  ? "bg-accent text-white shadow-sm"
+                  : "text-ink-300 hover:bg-ink-800/70 hover:text-ink-100"
+              }`}
+            >
+              {option.label}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function ClipboardIcon(): JSX.Element {
   return (
     <svg
@@ -170,6 +228,10 @@ function SettingsContent(): JSX.Element {
   const [installPlatform, setInstallPlatform] = useState<"ios" | "android">("ios");
   const [pasteBusy, setPasteBusy] = useState(false);
   const [pickerBusy, setPickerBusy] = useState(false);
+  const [themePreference, setThemePreferenceState] =
+    useState<ThemePreference>("dark");
+  const [textSizePreference, setTextSizePreferenceState] =
+    useState<TextSizePreference>("standard");
 
   useEffect(() => {
     let cancelled = false;
@@ -188,6 +250,10 @@ function SettingsContent(): JSX.Element {
   useEffect(() => {
     let cancelled = false;
     void (async () => {
+      const storedTheme = getStoredThemePreference();
+      const storedTextSize = getStoredTextSizePreference();
+      applyThemePreference(storedTheme);
+      applyTextSizePreference(storedTextSize);
       const existingFolder = await idbGet<ConfigFolderRecord>(
         "config",
         "folder_id",
@@ -206,12 +272,28 @@ function SettingsContent(): JSX.Element {
       if (!cancelled) {
         setDriveConnected(tok !== null);
         setAiAssist(ocrStatus && audioStatus);
+        setThemePreferenceState(storedTheme);
+        setTextSizePreferenceState(storedTextSize);
       }
     })();
     return () => {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (themePreference !== "system" || typeof window === "undefined") {
+      return;
+    }
+    const media = window.matchMedia("(prefers-color-scheme: dark)");
+    const onChange = () => {
+      applyThemePreference("system", media.matches);
+    };
+    media.addEventListener?.("change", onChange);
+    return () => {
+      media.removeEventListener?.("change", onChange);
+    };
+  }, [themePreference]);
 
   useEffect(() => {
     let cancelled = false;
@@ -427,6 +509,20 @@ function SettingsContent(): JSX.Element {
     setStatusMessage(`AI 補助を ${next ? "ON" : "OFF"} にしました。`);
   };
 
+  const handleThemePreference = (next: ThemePreference) => {
+    setStoredThemePreference(next);
+    setThemePreferenceState(next);
+    const label = THEME_OPTIONS.find((option) => option.value === next)?.label;
+    setStatusMessage(`テーマを「${label ?? "ダーク"}」にしました。`);
+  };
+
+  const handleTextSizePreference = (next: TextSizePreference) => {
+    setStoredTextSizePreference(next);
+    setTextSizePreferenceState(next);
+    const label = TEXT_SIZE_OPTIONS.find((option) => option.value === next)?.label;
+    setStatusMessage(`文字サイズを「${label ?? "標準"}」にしました。`);
+  };
+
   const handleSignOut = async () => {
     await revokeToken();
     setDriveConnected(false);
@@ -458,10 +554,14 @@ function SettingsContent(): JSX.Element {
       await idbClear("uploadSessions");
       await idbClear("pendingUploads");
       localStorage.clear();
+      applyThemePreference("dark");
+      applyTextSizePreference("standard");
       setStatusMessage("全てのデータを消去しました。");
       setFolderId(null);
       setFolderInput("");
       setFolderHistory([]);
+      setThemePreferenceState("dark");
+      setTextSizePreferenceState("standard");
       router.push("/");
     }
   };
@@ -775,6 +875,22 @@ function SettingsContent(): JSX.Element {
               />
             </button>
           }
+        />
+      </Group>
+
+      {/* ─────────── 表示 ─────────── */}
+      <Group title="表示">
+        <SegmentedControl
+          label="テーマ"
+          value={themePreference}
+          options={THEME_OPTIONS}
+          onChange={handleThemePreference}
+        />
+        <SegmentedControl
+          label="文字サイズ"
+          value={textSizePreference}
+          options={TEXT_SIZE_OPTIONS}
+          onChange={handleTextSizePreference}
         />
       </Group>
 

@@ -23,14 +23,47 @@ import { OnlineStatusBanner } from "./components/OnlineStatusBanner";
 import { Footer } from "./components/Footer";
 import { TrialExpiryBanner } from "./components/TrialExpiryBanner";
 
+const preferenceScript = `
+(function () {
+  try {
+    var themeKey = "cursorvers_theme";
+    var textSizeKey = "cursorvers_text_size";
+    var themePref = localStorage.getItem(themeKey) || "dark";
+    if (themePref !== "dark" && themePref !== "light" && themePref !== "system") themePref = "dark";
+    var systemDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+    var theme = themePref === "system" ? (systemDark ? "dark" : "light") : themePref;
+    var root = document.documentElement;
+    root.classList.remove("theme-dark", "theme-light");
+    root.classList.add("theme-" + theme);
+    root.dataset.theme = theme;
+    root.dataset.themePreference = themePref;
+    var textSize = localStorage.getItem(textSizeKey) || "standard";
+    var sizes = { standard: "100%", large: "112.5%", xlarge: "125%" };
+    root.style.fontSize = sizes[textSize] || sizes.standard;
+    root.dataset.textSize = sizes[textSize] ? textSize : "standard";
+    var themeColor = theme === "dark" ? "#0a1a4a" : "#f6f7fb";
+    var meta = document.querySelector('meta[name="theme-color"]');
+    if (!meta) {
+      meta = document.createElement("meta");
+      meta.setAttribute("name", "theme-color");
+      document.head.appendChild(meta);
+    }
+    meta.setAttribute("content", themeColor);
+  } catch (e) {}
+})();
+`;
+
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="ja">
+    <html lang="ja" className="theme-dark" suppressHydrationWarning>
       <head>
+        <script
+          dangerouslySetInnerHTML={{ __html: preferenceScript }}
+        />
         {/*
           Google Identity Services preload. Loading the script here rather
           than lazily inside gis.loadGisScript() removes the await chain
