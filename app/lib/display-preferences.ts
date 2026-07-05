@@ -10,8 +10,8 @@ const LIGHT_THEME_COLOR = "#f6f7fb";
 
 const TEXT_SIZE_SCALE: Record<TextSizePreference, string> = {
   standard: "100%",
-  large: "112.5%",
-  xlarge: "125%",
+  large: "120%",
+  xlarge: "140%",
 };
 
 export function isThemePreference(value: unknown): value is ThemePreference {

@@ -75,13 +75,13 @@ describe("display-preferences", () => {
   });
 
   it("applies and persists text size as html font-size", () => {
-    expect(applyTextSizePreference("large")).toBe("112.5%");
-    expect(document.documentElement.style.fontSize).toBe("112.5%");
+    expect(applyTextSizePreference("large")).toBe("120%");
+    expect(document.documentElement.style.fontSize).toBe("120%");
     expect(document.documentElement.dataset.textSize).toBe("large");
 
     setStoredTextSizePreference("xlarge");
 
     expect(localStorage.getItem(TEXT_SIZE_STORAGE_KEY)).toBe("xlarge");
-    expect(document.documentElement.style.fontSize).toBe("125%");
+    expect(document.documentElement.style.fontSize).toBe("140%");
   });
 });

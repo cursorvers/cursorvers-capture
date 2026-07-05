@@ -38,7 +38,7 @@ const preferenceScript = `
     root.dataset.theme = theme;
     root.dataset.themePreference = themePref;
     var textSize = localStorage.getItem(textSizeKey) || "standard";
-    var sizes = { standard: "100%", large: "112.5%", xlarge: "125%" };
+    var sizes = { standard: "100%", large: "120%", xlarge: "140%" };
     root.style.fontSize = sizes[textSize] || sizes.standard;
     root.dataset.textSize = sizes[textSize] ? textSize : "standard";
     var themeColor = theme === "dark" ? "#0b0d12" : "#f6f7fb";
