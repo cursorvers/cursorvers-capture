@@ -24,6 +24,10 @@ import {
   setAudioEnabled as setAudioEnabledStore,
 } from "@/app/lib/audio-toggle";
 import {
+  getAutoAiRenameEnabled,
+  setAutoAiRenameEnabled,
+} from "@/app/lib/ai-rename-toggle";
+import {
   applyThemePreference,
   applyTextSizePreference,
   getStoredTextSizePreference,
@@ -222,6 +226,7 @@ function SettingsContent(): JSX.Element {
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [shares, setShares] = useState<ShareRecord[]>([]);
   const [aiAssist, setAiAssist] = useState(false);
+  const [autoAiRename, setAutoAiRename] = useState(true);
   const [driveConnected, setDriveConnected] = useState(false);
   const [helperOpen, setHelperOpen] = useState(false);
   const [iosGuideOpen, setIosGuideOpen] = useState(false);
@@ -268,10 +273,12 @@ function SettingsContent(): JSX.Element {
       setDeviceShort(getDeviceShort());
       const ocrStatus = await getOcrEnabled();
       const audioStatus = await getAudioEnabled();
+      const autoRenameStatus = await getAutoAiRenameEnabled();
       const tok = await getCurrentToken();
       if (!cancelled) {
         setDriveConnected(tok !== null);
         setAiAssist(ocrStatus && audioStatus);
+        setAutoAiRename(autoRenameStatus);
         setThemePreferenceState(storedTheme);
         setTextSizePreferenceState(storedTextSize);
       }
@@ -507,6 +514,13 @@ function SettingsContent(): JSX.Element {
     await setAudioEnabledStore(next);
     setAiAssist(next);
     setStatusMessage(`AI 補助を ${next ? "ON" : "OFF"} にしました。`);
+  };
+
+  const handleAutoAiRenameToggle = async () => {
+    const next = !autoAiRename;
+    await setAutoAiRenameEnabled(next);
+    setAutoAiRename(next);
+    setStatusMessage(`AI リネーム自動適用を ${next ? "ON" : "OFF"} にしました。`);
   };
 
   const handleThemePreference = (next: ThemePreference) => {
@@ -854,6 +868,28 @@ function SettingsContent(): JSX.Element {
 
       {/* ─────────── 機能 ─────────── */}
       <Group title="機能">
+        <Row
+          label="AI リネームを自動適用"
+          hint="ON の場合、解析した題名候補を撮影後に自動で Drive ファイル名へ反映します。失敗時は元の名前を維持します。"
+          action={
+            <button
+              type="button"
+              role="switch"
+              aria-checked={autoAiRename}
+              onClick={() => void handleAutoAiRenameToggle()}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                autoAiRename ? "bg-accent" : "bg-ink-700"
+              }`}
+            >
+              <span className="sr-only">AI リネーム自動適用のオン・オフ</span>
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${
+                  autoAiRename ? "translate-x-6" : "translate-x-1"
+                }`}
+              />
+            </button>
+          }
+        />
         <Row
           label="AI 補助 (OCR・音声)"
           hint="ON にすると OCR と音声メモ (長押し録音) の両方が有効になります。Codex へ一時送信されますが、保存はされません。"

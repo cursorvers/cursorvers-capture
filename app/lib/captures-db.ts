@@ -16,6 +16,7 @@ const STORE: IdbStoreName = "captures";
 export type CaptureRecord = {
   file_id: string;
   drive_name: string;
+  original_drive_name?: string;
   drive_url?: string;
   thumbnail_url?: string;
   created_iso: string;        // when the user captured (ISO)
@@ -54,6 +55,7 @@ export async function listAllCaptures(): Promise<CaptureRecord[]> {
 export function buildCaptureRecord(opts: {
   file_id: string;
   drive_name: string;
+  original_drive_name?: string;
   drive_url?: string;
   thumbnail_url?: string;
   parent_id?: string;
@@ -64,6 +66,7 @@ export function buildCaptureRecord(opts: {
   return {
     file_id: opts.file_id,
     drive_name: opts.drive_name,
+    original_drive_name: opts.original_drive_name,
     drive_url: opts.drive_url,
     thumbnail_url: opts.thumbnail_url,
     created_iso: new Date().toISOString(),

@@ -12,6 +12,10 @@ import {
   moveDriveFile,
 } from "@/app/lib/doc-routing";
 import { buildCaptureRecord, putCapture } from "@/app/lib/captures-db";
+import {
+  autoApplyAiRename,
+  type AutoRenameResult,
+} from "@/app/lib/auto-rename";
 
 import { SignInButton } from "@/app/components/SignInButton";
 import { InviteBanner } from "@/app/components/InviteBanner";
@@ -38,6 +42,13 @@ type CaptureInflight = {
 };
 
 type CaptureBatchProgress = { index: number; total: number };
+
+type PersistResult = {
+  routedToParent?: string;
+  driveName: string;
+  originalDriveName?: string;
+  rename: AutoRenameResult;
+};
 
 const BACKOFF_RETRY_MS = 800;
 
@@ -99,6 +110,7 @@ export default function HomeContent(): JSX.Element {
   const [captures, setCaptures] = useState<CaptureInflight[]>([]);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const batchFailureCountRef = useRef(0);
+  const batchRenameFailureCountRef = useRef(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -162,15 +174,36 @@ export default function HomeContent(): JSX.Element {
     async (
       fileId: string,
       analysis: CaptureAnalysis,
-    ): Promise<string | undefined> => {
+      originalDriveName: string,
+    ): Promise<PersistResult> => {
       const tok = await getCurrentToken();
-      if (!tok) return undefined;
+      if (!tok) {
+        return {
+          driveName: originalDriveName,
+          rename: { driveName: originalDriveName, status: "skipped" },
+        };
+      }
 
-      void saveAnalysisToDrive(fileId, tok, analysis).catch((err) =>
-        console.error("Drive description patch failed", err),
-      );
+      try {
+        await saveAnalysisToDrive(fileId, tok, analysis);
+      } catch (err) {
+        console.error("Drive description patch failed", err);
+      }
 
-      if (!folderId) return undefined;
+      const rename = await autoApplyAiRename({
+        fileId,
+        accessToken: tok,
+        originalDriveName,
+        analysis,
+      });
+
+      if (!folderId) {
+        return {
+          driveName: rename.driveName,
+          originalDriveName: rename.originalDriveName,
+          rename,
+        };
+      }
       try {
         const target = await ensureRoutingFolder({
           doc_type: analysis.doc_type,
@@ -184,12 +217,21 @@ export default function HomeContent(): JSX.Element {
             remove_parent: folderId,
             accessToken: tok,
           });
-          return target;
+          return {
+            routedToParent: target,
+            driveName: rename.driveName,
+            originalDriveName: rename.originalDriveName,
+            rename,
+          };
         }
       } catch (err) {
         console.error("auto-route failed", err);
       }
-      return undefined;
+      return {
+        driveName: rename.driveName,
+        originalDriveName: rename.originalDriveName,
+        rename,
+      };
     },
     [folderId],
   );
@@ -223,24 +265,42 @@ export default function HomeContent(): JSX.Element {
       }
       try {
         const result = await analyzeCapture({ image: blob, audio: audioBlob });
-        const routedToParent = await persistAnalysisAndRoute(fileId, result);
+        const persisted = await persistAnalysisAndRoute(
+          fileId,
+          result,
+          target.drive_name,
+        );
         void putCapture(
           buildCaptureRecord({
             file_id: fileId,
-            drive_name: target.drive_name,
+            drive_name: persisted.driveName,
+            original_drive_name: persisted.originalDriveName,
             drive_url: target.drive_url,
-            parent_id: routedToParent ?? folderId ?? undefined,
+            parent_id: persisted.routedToParent ?? folderId ?? undefined,
             analysis: result,
-            routed_to: routedToParent,
+            routed_to: persisted.routedToParent,
           }),
         ).catch((err) => console.error("captures IDB write failed", err));
         setCaptures((prev) =>
           prev.map((c) =>
             c.file_id === fileId
-              ? { ...c, state: "ready" as const, analysis: result, retrying: false }
+              ? {
+                  ...c,
+                  drive_name: persisted.driveName,
+                  state: "ready" as const,
+                  analysis: result,
+                  retrying: false,
+                }
               : c,
           ),
         );
+        if (persisted.rename.status === "failed") {
+          setStatusMessage(
+            persisted.rename.isConflict
+              ? "AI リネームは同名ファイルと衝突したため、元のファイル名を維持しました。"
+              : "AI リネームに失敗したため、元のファイル名を維持しました。",
+          );
+        }
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         setCaptures((prev) =>
@@ -265,6 +325,7 @@ export default function HomeContent(): JSX.Element {
     ): Promise<void> => {
       if (batch?.index === 1) {
         batchFailureCountRef.current = 0;
+        batchRenameFailureCountRef.current = 0;
       }
 
       const progressLabel = batch ? `(${batch.index}/${batch.total}) ` : "";
@@ -313,25 +374,46 @@ export default function HomeContent(): JSX.Element {
           const result = await withOneBackoffRetry(() =>
             analyzeCapture({ image: blob, audio: audioBlob ?? null }),
           );
-          const routedToParent = await persistAnalysisAndRoute(fileId, result);
+          const persisted = await persistAnalysisAndRoute(
+            fileId,
+            result,
+            filename,
+          );
           void putCapture(
             buildCaptureRecord({
               file_id: fileId,
-              drive_name: filename,
+              drive_name: persisted.driveName,
+              original_drive_name: persisted.originalDriveName,
               drive_url: driveUrl,
-              parent_id: routedToParent ?? folderId ?? undefined,
+              parent_id: persisted.routedToParent ?? folderId ?? undefined,
               analysis: result,
-              routed_to: routedToParent,
+              routed_to: persisted.routedToParent,
             }),
           ).catch((err) => console.error("captures IDB write failed", err));
           setCaptures((prev) =>
             prev.map((c) =>
               c.file_id === fileId
-                ? { ...c, state: "ready", analysis: result }
+                ? {
+                    ...c,
+                    drive_name: persisted.driveName,
+                    state: "ready",
+                    analysis: result,
+                  }
                 : c,
             ),
           );
-          setStatusMessage(`${progressLabel}完了`);
+          if (persisted.rename.status === "failed") {
+            if (batch) {
+              batchRenameFailureCountRef.current += 1;
+            }
+            setStatusMessage(
+              persisted.rename.isConflict
+                ? `${progressLabel}完了。AI リネームは同名ファイルと衝突したため、元のファイル名を維持しました。`
+                : `${progressLabel}完了。AI リネームに失敗したため、元のファイル名を維持しました。`,
+            );
+          } else {
+            setStatusMessage(`${progressLabel}完了`);
+          }
         } catch (err) {
           batchFailureCountRef.current += 1;
           const msg = err instanceof Error ? err.message : String(err);
@@ -351,7 +433,14 @@ export default function HomeContent(): JSX.Element {
       } finally {
         if (batch && batch.index === batch.total) {
           const failures = batchFailureCountRef.current;
-          setStatusMessage(formatBatchFinalStatus(batch.total, failures));
+          const renameFailures = batchRenameFailureCountRef.current;
+          const renameSuffix =
+            renameFailures > 0
+              ? `, AIリネーム元名維持 ${renameFailures}`
+              : "";
+          setStatusMessage(
+            `${formatBatchFinalStatus(batch.total, failures)}${renameSuffix}`,
+          );
         }
       }
     },
