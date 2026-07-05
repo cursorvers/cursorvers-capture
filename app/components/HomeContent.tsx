@@ -8,10 +8,8 @@ import {
   type CaptureAnalysis,
 } from "@/app/lib/capture-analysis";
 import {
-  getRouting,
+  ensureRoutingFolder,
   moveDriveFile,
-  targetFolderFor,
-  type DocRouting,
 } from "@/app/lib/doc-routing";
 import { buildCaptureRecord, putCapture } from "@/app/lib/captures-db";
 
@@ -133,6 +131,42 @@ export default function HomeContent(): JSX.Element {
     };
   }, []);
 
+  const persistAnalysisAndRoute = useCallback(
+    async (
+      fileId: string,
+      analysis: CaptureAnalysis,
+    ): Promise<string | undefined> => {
+      const tok = await getCurrentToken();
+      if (!tok) return undefined;
+
+      void saveAnalysisToDrive(fileId, tok, analysis).catch((err) =>
+        console.error("Drive description patch failed", err),
+      );
+
+      if (!folderId) return undefined;
+      try {
+        const target = await ensureRoutingFolder({
+          doc_type: analysis.doc_type,
+          parent_id: folderId,
+          accessToken: tok,
+        });
+        if (target && target !== folderId) {
+          await moveDriveFile({
+            file_id: fileId,
+            add_parent: target,
+            remove_parent: folderId,
+            accessToken: tok,
+          });
+          return target;
+        }
+      } catch (err) {
+        console.error("auto-route failed", err);
+      }
+      return undefined;
+    },
+    [folderId],
+  );
+
   const handleRetryAnalysis = useCallback(
     async (fileId: string): Promise<void> => {
       setCaptures((prev) =>
@@ -162,10 +196,17 @@ export default function HomeContent(): JSX.Element {
       }
       try {
         const result = await analyzeCapture({ image: blob, audio: audioBlob });
-        const tok = await getCurrentToken();
-        if (tok) {
-          void saveAnalysisToDrive(fileId, tok, result).catch(() => undefined);
-        }
+        const routedToParent = await persistAnalysisAndRoute(fileId, result);
+        void putCapture(
+          buildCaptureRecord({
+            file_id: fileId,
+            drive_name: target.drive_name,
+            drive_url: target.drive_url,
+            parent_id: routedToParent ?? folderId ?? undefined,
+            analysis: result,
+            routed_to: routedToParent,
+          }),
+        ).catch((err) => console.error("captures IDB write failed", err));
         setCaptures((prev) =>
           prev.map((c) =>
             c.file_id === fileId
@@ -184,7 +225,7 @@ export default function HomeContent(): JSX.Element {
         );
       }
     },
-    [captures],
+    [captures, folderId, persistAnalysisAndRoute],
   );
 
   const handleCaptured = useCallback(
@@ -231,28 +272,7 @@ export default function HomeContent(): JSX.Element {
         void (async () => {
           try {
             const result = await analyzeCapture({ image: blob, audio: audioBlob ?? null });
-            const tok = await getCurrentToken();
-            let routedToParent: string | undefined;
-            if (tok) {
-              void saveAnalysisToDrive(fileId, tok, result).catch(
-                (err) => console.error("Drive description patch failed", err),
-              );
-              try {
-                const routing: DocRouting = await getRouting();
-                const target = targetFolderFor(routing, result.doc_type);
-                if (target && folderId && target !== folderId) {
-                  await moveDriveFile({
-                    file_id: fileId,
-                    add_parent: target,
-                    remove_parent: folderId,
-                    accessToken: tok,
-                  });
-                  routedToParent = target;
-                }
-              } catch (err) {
-                console.error("auto-route failed", err);
-              }
-            }
+            const routedToParent = await persistAnalysisAndRoute(fileId, result);
             void putCapture(
               buildCaptureRecord({
                 file_id: fileId,
@@ -287,7 +307,7 @@ export default function HomeContent(): JSX.Element {
         setStatusMessage(`失敗: ${msg}`);
       }
     },
-    [folderId],
+    [folderId, persistAnalysisAndRoute],
   );
 
   return (

@@ -57,12 +57,55 @@ export const DOC_TYPE_LABEL: Record<DocType, string> = {
   other: "その他",
 };
 
+const DRIVE_FOLDER_MIME = "application/vnd.google-apps.folder";
+const DOC_TYPE_APP_PROPERTY = "cursorversDocType";
+const routingLocks = new Map<string, Promise<unknown>>();
+
+type LockManagerLike = {
+  request<T>(name: string, callback: () => Promise<T>): Promise<T>;
+};
+
+function quoteDriveQueryValue(value: string): string {
+  return value.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+}
+
+async function withRoutingLock<T>(
+  doc_type: DocType,
+  parent_id: string,
+  callback: () => Promise<T>,
+): Promise<T> {
+  const name = `cursorvers-doc-routing:${parent_id}:${doc_type}`;
+  const locks = (globalThis.navigator as { locks?: LockManagerLike } | undefined)
+    ?.locks;
+  if (locks?.request) {
+    return locks.request(name, callback);
+  }
+
+  const previous = routingLocks.get(name) ?? Promise.resolve();
+  let release!: () => void;
+  const current = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const chained = previous.then(() => current);
+  routingLocks.set(name, chained);
+  await previous;
+  try {
+    return await callback();
+  } finally {
+    release();
+    if (routingLocks.get(name) === chained) {
+      routingLocks.delete(name);
+    }
+  }
+}
+
 // Create a new folder under `parent_id` and return its id+name. drive.file
 // scope is sufficient because the new folder is created by this app.
 export async function createDriveFolder(opts: {
   name: string;
   parent_id: string;
   accessToken: string;
+  appProperties?: Record<string, string>;
 }): Promise<{ id: string; name: string }> {
   const res = await fetch("https://www.googleapis.com/drive/v3/files", {
     method: "POST",
@@ -72,8 +115,9 @@ export async function createDriveFolder(opts: {
     },
     body: JSON.stringify({
       name: opts.name,
-      mimeType: "application/vnd.google-apps.folder",
+      mimeType: DRIVE_FOLDER_MIME,
       parents: [opts.parent_id],
+      ...(opts.appProperties ? { appProperties: opts.appProperties } : {}),
     }),
   });
   if (!res.ok) {
@@ -85,6 +129,77 @@ export async function createDriveFolder(opts: {
     throw new Error("createDriveFolder: missing id/name in response");
   }
   return { id: data.id, name: data.name };
+}
+
+export async function findDriveRoutingFolder(opts: {
+  doc_type: DocType;
+  parent_id: string;
+  accessToken: string;
+}): Promise<{ id: string; name: string } | null> {
+  const label = DOC_TYPE_LABEL[opts.doc_type];
+  const q = [
+    `'${quoteDriveQueryValue(opts.parent_id)}' in parents`,
+    "trashed = false",
+    `mimeType = '${DRIVE_FOLDER_MIME}'`,
+    `(`,
+    `appProperties has { key='${DOC_TYPE_APP_PROPERTY}' and value='${opts.doc_type}' }`,
+    `or name = '${quoteDriveQueryValue(label)}'`,
+    `)`,
+  ].join(" ");
+  const url = new URL("https://www.googleapis.com/drive/v3/files");
+  url.searchParams.set("q", q);
+  url.searchParams.set("fields", "files(id,name,appProperties)");
+  url.searchParams.set("pageSize", "10");
+
+  const res = await fetch(url.toString(), {
+    headers: { Authorization: `Bearer ${opts.accessToken}` },
+  });
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`findDriveRoutingFolder failed (${res.status}): ${body.slice(0, 200)}`);
+  }
+  const data = (await res.json()) as {
+    files?: Array<{
+      id?: string;
+      name?: string;
+      appProperties?: Record<string, string>;
+    }>;
+  };
+  const files = data.files ?? [];
+  const tagged = files.find(
+    (f) => f.id && f.name && f.appProperties?.[DOC_TYPE_APP_PROPERTY] === opts.doc_type,
+  );
+  const named = files.find((f) => f.id && f.name === label);
+  const found = tagged ?? named;
+  if (!found?.id || !found.name) return null;
+  return { id: found.id, name: found.name };
+}
+
+export async function ensureRoutingFolder(opts: {
+  doc_type: DocType;
+  parent_id: string;
+  accessToken: string;
+}): Promise<string> {
+  return withRoutingLock(opts.doc_type, opts.parent_id, async () => {
+    const latest = await getRouting();
+    const configured = targetFolderFor(latest, opts.doc_type);
+    if (configured) return configured;
+
+    const existing = await findDriveRoutingFolder(opts);
+    if (existing) {
+      await updateRouting(opts.doc_type, existing.id);
+      return existing.id;
+    }
+
+    const folder = await createDriveFolder({
+      name: DOC_TYPE_LABEL[opts.doc_type],
+      parent_id: opts.parent_id,
+      accessToken: opts.accessToken,
+      appProperties: { [DOC_TYPE_APP_PROPERTY]: opts.doc_type },
+    });
+    await updateRouting(opts.doc_type, folder.id);
+    return folder.id;
+  });
 }
 
 // Move a file by swapping its parents.

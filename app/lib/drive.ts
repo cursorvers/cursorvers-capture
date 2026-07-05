@@ -271,7 +271,10 @@ export async function uploadBlob(
 
     } catch (error: unknown) {
 
-      if (error instanceof Error && (error.message.includes('410') || error.message.includes('404'))) {
+      if (
+        error instanceof DriveUploadError &&
+        error.category === "session_expired"
+      ) {
 
         // Session expired or not found during chunk upload, re-initialize once
 
